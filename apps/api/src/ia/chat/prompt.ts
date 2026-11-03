@@ -8,14 +8,26 @@ export const MAX_CHARS_RESPOSTA_ANTIGA = 1200;
 
 export const TEXTO_DOS_ATALHOS: Record<NonNullable<PedidoChat['atalho']>, string> = {
   assist: 'Com base no contexto, me ajude com o que for mais útil agora.',
-  oQueDizer: 'O que eu devo dizer agora? Me dê a fala pronta, em primeira pessoa.',
+  oQueDizer: 'O que eu devo dizer agora? Responda à última pergunta que me fizeram, com a fala pronta.',
   followUp: 'Sugira 3 perguntas de follow-up curtas que eu posso fazer agora.',
 };
 
-/** Regras fixas, iguais em toda chamada (fazem parte do prefixo cacheável). */
-const REGRAS =
-  'Regras: responda no idioma do usuário (padrão português do Brasil). Seja breve: a pessoa está numa call ' +
-  'e vai ler de relance. Sem introduções nem despedidas. Use Markdown leve (negrito, listas curtas, blocos de código).';
+/**
+ * Regras fixas, iguais em toda chamada (fazem parte do prefixo cacheável).
+ *
+ * A pessoa lê enquanto fala, de relance. Por isso a resposta tem duas camadas:
+ * a ideia em negrito (bate o olho e já sabe o rumo) e a fala, em frases curtas
+ * que funcionam sozinhas, para ela poder ir ajustando o tom e parar quando quiser.
+ */
+const REGRAS = [
+  'Você escreve o que a pessoa vai dizer numa call ao vivo. Ela lê de relance enquanto fala, então:',
+  '1. Primeira linha: a ideia central em negrito, com no máximo 10 palavras.',
+  '2. Depois, a fala: 2 a 4 frases curtas, em primeira pessoa, do jeito que alguém fala numa conversa. ' +
+    'Palavras simples, um exemplo concreto quando ajudar. Cada frase precisa fazer sentido sozinha.',
+  'Soe humano: nada de "Claro!", "Ótima pergunta", introduções, conclusões, títulos ou listas. ' +
+    'Exceções: quando pedirem perguntas ou opções, dê uma lista curta; código vai num bloco curto.',
+  'Responda no idioma da conversa (padrão: português do Brasil). Não invente fatos sobre a pessoa que não estejam no perfil.',
+].join('\n');
 
 export interface TrocaAnterior {
   pergunta: string;
