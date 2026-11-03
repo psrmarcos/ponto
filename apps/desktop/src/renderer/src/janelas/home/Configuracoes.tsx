@@ -76,6 +76,20 @@ export function Configuracoes() {
         </div>
         <div className="ajuste">
           <div className="principal">
+            <div className="t1">Resumo ao vivo</div>
+            <div className="t2">A aba Resumo da Transcrição se atualiza sozinha durante a call (modelo rápido, centavos por hora).</div>
+          </div>
+          <Chave ligada={config.resumoAoVivo} rotulo="Resumo ao vivo" aoMudar={(v) => void salvar({ resumoAoVivo: v })} />
+        </div>
+        <div className="ajuste">
+          <div className="principal">
+            <div className="t1">Insights ao vivo</div>
+            <div className="t2">Dicas, oportunidades, riscos e como está sua voz, só quando valer a pena.</div>
+          </div>
+          <Chave ligada={config.insightsAoVivo} rotulo="Insights ao vivo" aoMudar={(v) => void salvar({ insightsAoVivo: v })} />
+        </div>
+        <div className="ajuste">
+          <div className="principal">
             <div className="t1">Pesquisa na web por padrão</div>
             <div className="t2">Pode ser ligada em cada pergunta pelo chip Web. Cada busca custa tokens.</div>
           </div>

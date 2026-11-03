@@ -51,6 +51,10 @@ export const Configuracoes = z.object({
   /** Modelo barato para tarefas internas (títulos, compactação de histórico). */
   modeloRapido: z.string().min(1),
   sugestoesAutomaticas: z.boolean(),
+  /** Resumo da call que se atualiza sozinho na aba Resumo da Transcrição. */
+  resumoAoVivo: z.boolean(),
+  /** Insights na aba Insights da Transcrição (só os que valem a pena). */
+  insightsAoVivo: z.boolean(),
   webPorPadrao: z.boolean(),
   idioma: z.enum(['auto', 'pt-BR', 'en', 'es']),
   /** Quem transcreve o áudio. */
@@ -72,6 +76,8 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   // Medido no PC do Marcos: ~1,4 s de ponta a ponta e US$ 0,0002 por resposta.
   modeloVisao: 'google/gemini-2.5-flash-lite',
   sugestoesAutomaticas: true,
+  resumoAoVivo: true,
+  insightsAoVivo: false,
   webPorPadrao: false,
   // Fixar o idioma evita que ruído vire frase em outra língua.
   idioma: 'pt-BR',
@@ -80,6 +86,31 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   tetoSessaoUsd: 1,
   agenteAtivo: 'geral',
 };
+
+// ---------- Análise ao vivo (abas Resumo e Insights da Transcrição) ----------
+
+export const ResumoAoVivo = z.object({ texto: z.string(), em: z.number() });
+export type ResumoAoVivo = z.infer<typeof ResumoAoVivo>;
+
+export const TipoInsight = z.enum(['oportunidade', 'risco', 'voz', 'dica']);
+export type TipoInsight = z.infer<typeof TipoInsight>;
+
+export const Insight = z.object({ id: z.string(), tipo: TipoInsight, texto: z.string(), em: z.number() });
+export type Insight = z.infer<typeof Insight>;
+
+/** Medidas da voz calculadas no PC, sem IA (ritmo e quanto cada lado fala). */
+export const MetricasVoz = z.object({
+  /** 0 a 1: parte do tempo de fala que é sua. */
+  suaParte: z.number(),
+  /** Palavras por minuto nas suas falas (null sem dados). */
+  seuRitmo: z.number().nullable(),
+  /** Sua fala mais longa, em segundos. */
+  suaMaiorFala: z.number(),
+});
+export type MetricasVoz = z.infer<typeof MetricasVoz>;
+
+export const AoVivo = z.object({ resumo: ResumoAoVivo.nullable(), insights: z.array(Insight), metricas: MetricasVoz });
+export type AoVivo = z.infer<typeof AoVivo>;
 
 // ---------- Agentes ----------
 
@@ -180,6 +211,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('transcricao.limpa'), sessaoId: z.string(), ateMs: z.number() }),
   /** O app detectou uma pergunta para o usuário e já começou a responder (chat.* com este respostaId). */
   z.object({ tipo: z.literal('sugestao.nova'), sessaoId: z.string(), respostaId: z.string(), pergunta: z.string() }),
+  /** Análise ao vivo da sessão: resumo novo e/ou insight novo. */
+  z.object({ tipo: z.literal('sessao.aoVivo'), sessaoId: z.string(), resumo: ResumoAoVivo.optional(), insight: Insight.optional() }),
   /** A lista de agentes mudou (criado, editado, apagado). */
   z.object({ tipo: z.literal('agentes'), agentes: z.array(Agente) }),
   z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),

@@ -1,9 +1,10 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post } from '@nestjs/common';
-import { EdicaoSessao, type GastoPorOrigem, type MensagemSalva, type SessaoNaLista } from '@ponto/shared';
+import { EdicaoSessao, type AoVivo, type GastoPorOrigem, type MensagemSalva, type SessaoNaLista } from '@ponto/shared';
 import { ZodPipe } from '../comum/zod.pipe';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 import { SessoesService } from '../sessoes/sessoes.service';
 import { AtaService, sessaoEmMarkdown } from './ata.service';
+import { AoVivoService } from './ao-vivo.service';
 
 /** Histórico de sessões na Home: lista, ata, exportação e limpeza. */
 @Controller('sessoes')
@@ -12,6 +13,7 @@ export class ResumosController {
     private readonly sessoes: SessoesService,
     private readonly ata: AtaService,
     private readonly config: ConfiguracoesService,
+    private readonly aoVivo: AoVivoService,
   ) {}
 
   @Get()
@@ -36,6 +38,11 @@ export class ResumosController {
   @HttpCode(202)
   gerarResumo(@Param('id') id: string): void {
     void this.ata.gerar(id, true);
+  }
+
+  @Get(':id/ao-vivo')
+  analiseAoVivo(@Param('id') id: string): Promise<AoVivo> {
+    return this.aoVivo.obter(id);
   }
 
   @Get(':id/gastos')

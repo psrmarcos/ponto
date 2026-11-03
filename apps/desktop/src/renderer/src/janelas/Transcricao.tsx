@@ -3,6 +3,7 @@ import { ArrowDown, ArrowCounterClockwise, Broom, Microphone, Pause, Play, Recor
 import type { Configuracoes, Fala } from '@ponto/shared';
 import { useCaptura, useEstadoApp } from '../estado/app';
 import { api } from '../api/cliente';
+import { AbaInsights, AbaResumo, SeletorAbas, useLigarAoVivo, type AbaTranscricao } from './transcricao/AbasAoVivo';
 import { useDominio } from '../estado/dominio';
 import { useTranscricao } from '../estado/transcricao';
 import { Cabecalho } from '../ui/Cabecalho';
@@ -20,6 +21,8 @@ export function Transcricao() {
   const falas = useTranscricao((s) => s.falas);
   const aviso = useTranscricao((s) => s.aviso);
   const gravando = captura.status === 'gravando';
+  const [aba, setAba] = useState<AbaTranscricao>('bruta');
+  useLigarAoVivo();
 
   return (
     <div className="janela-painel" style={{ flexDirection: 'column' }}>
@@ -30,7 +33,10 @@ export function Transcricao() {
           titulo="Transcrição"
           meta={captura.status !== 'parada' && <AoVivo pausada={captura.status === 'pausada'} desde={captura.iniciadaEm} />}
         />
-        <ListaFalas falas={falas} gravando={gravando} parada={captura.status === 'parada'} />
+        <SeletorAbas aba={aba} mudar={setAba} />
+        {aba === 'bruta' && <ListaFalas falas={falas} gravando={gravando} parada={captura.status === 'parada'} />}
+        {aba === 'resumo' && <AbaResumo />}
+        {aba === 'insights' && <AbaInsights />}
         <Desfazer />
         {aviso && <div className="aviso-transcricao" role="status">{aviso}</div>}
         {captura.status !== 'parada' && <Medidores fontes={captura.fontes} />}

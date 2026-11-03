@@ -533,3 +533,26 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .tabela-gastos .forte { color: var(--texto); font-weight: 600; }
 .tabela-gastos .total td { border-bottom: 0; font-weight: 650; color: var(--texto); }
 .menu.para-cima { top: auto; bottom: 38px; }
+
+/* ---------- Abas da Transcrição (bruta, resumo, insights) ---------- */
+.abas-transcricao { padding: 0 10px; flex: none; }
+.contador-aba { margin-left: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--azul); color: #fff; font-size: 10.5px; display: inline-flex; align-items: center; justify-content: center; }
+.corpo-aba { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; user-select: text; }
+.topo-aba { display: flex; align-items: center; gap: 10px; }
+.topo-aba .t2 { flex: 1; font-size: 11.5px; color: var(--texto-3); }
+.vazio-aba { margin: 16px 0; text-align: center; font-size: 12.5px; color: var(--texto-3); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.resumo-ao-vivo { font-size: 13px; line-height: 1.5; color: var(--texto); }
+.resumo-ao-vivo ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.resumo-ao-vivo p { margin: 0 0 6px; }
+.metricas-voz { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); }
+.metrica { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
+.metrica .rot { color: var(--texto-3); }
+.metrica .val { color: var(--texto-2); font-variant-numeric: tabular-nums; grid-column: 3; }
+.metrica:not(:has(.trilho)) .val { grid-column: 2 / 4; justify-self: end; }
+.lista-insights { display: flex; flex-direction: column; gap: 8px; }
+.insight { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--borda-forte); font-size: 13px; line-height: 1.4; }
+.insight .tipo { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--texto-3); }
+.insight-oportunidade { border-left-color: var(--verde); }
+.insight-risco { border-left-color: var(--vermelho); }
+.insight-voz { border-left-color: #B48CFF; }
+.insight-dica { border-left-color: var(--azul); }
