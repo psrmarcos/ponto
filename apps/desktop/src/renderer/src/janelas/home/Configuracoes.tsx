@@ -4,6 +4,8 @@ import { api } from '../../api/cliente';
 import { useEstadoApp, useStealth } from '../../estado/app';
 import { useDominio } from '../../estado/dominio';
 import { Chave } from '../../ui/Chave';
+import { IDIOMAS } from '../../ui/idiomas';
+import { Seletor } from '../../ui/Seletor';
 
 const ROTULOS_ATALHO: Record<AcaoAtalho, string> = {
   alternarStealth: 'Ligar/desligar invisibilidade',
@@ -92,20 +94,13 @@ export function Configuracoes() {
                 : 'Usa a chave do Deepgram (cadastre em Perfil). Cerca de US$ 0,26 por hora de call.'}
             </div>
           </div>
-          <select
-            aria-label="Serviço de transcrição"
-            value={config.provedorStt}
-            onChange={(e) => {
-              const p = IdProvedorStt.parse(e.target.value);
-              void salvar({ provedorStt: p, modeloStt: INFO_PROVEDORES_STT[p].modeloPadrao });
-            }}
-          >
-            {IdProvedorStt.options.map((p) => (
-              <option key={p} value={p}>
-                {INFO_PROVEDORES_STT[p].nome}
-              </option>
-            ))}
-          </select>
+          <Seletor
+            rotulo="Serviço de transcrição"
+            alinhar="direita"
+            valor={config.provedorStt}
+            opcoes={IdProvedorStt.options.map((p) => ({ valor: p, rotulo: INFO_PROVEDORES_STT[p].nome }))}
+            aoMudar={(p) => void salvar({ provedorStt: p, modeloStt: INFO_PROVEDORES_STT[p].modeloPadrao })}
+          />
         </div>
         <div className="ajuste">
           <div className="principal">
@@ -129,12 +124,7 @@ export function Configuracoes() {
             <div className="t1">Idioma da conversa</div>
             <div className="t2">Fixar o idioma deixa a transcrição mais precisa que a detecção automática.</div>
           </div>
-          <select aria-label="Idioma da conversa" value={config.idioma} onChange={(e) => void salvar({ idioma: e.target.value as Config['idioma'] })}>
-            <option value="auto">Detectar</option>
-            <option value="pt-BR">Português (BR)</option>
-            <option value="en">English</option>
-            <option value="es">Español</option>
-          </select>
+          <Seletor rotulo="Idioma da conversa" alinhar="direita" valor={config.idioma} opcoes={IDIOMAS} aoMudar={(v) => void salvar({ idioma: v })} />
         </div>
       </div>
 

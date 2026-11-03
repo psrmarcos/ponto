@@ -6,6 +6,8 @@ import { api } from '../api/cliente';
 import { useDominio } from '../estado/dominio';
 import { useTranscricao } from '../estado/transcricao';
 import { Cabecalho } from '../ui/Cabecalho';
+import { IDIOMAS } from '../ui/idiomas';
+import { Seletor } from '../ui/Seletor';
 
 const comandar = (acao: 'iniciar' | 'pausar' | 'retomar' | 'parar') => void window.ponto.invocar('captura.comandar', { acao });
 
@@ -172,6 +174,7 @@ function Medidores({ fontes }: { fontes: { microfone: boolean; sistema: boolean 
   );
 }
 
+
 function Rodape() {
   const captura = useCaptura();
   const idioma = useDominio((s) => s.configuracoes?.idioma ?? 'auto');
@@ -204,16 +207,7 @@ function Rodape() {
         <Stop size={12} weight="fill" />
       </button>
       <BotaoLimpar />
-      <select
-        aria-label="Idioma da conversa"
-        value={idioma}
-        onChange={(e) => void salvar({ idioma: e.target.value as Configuracoes['idioma'] })}
-      >
-        <option value="auto">Detectar idioma</option>
-        <option value="pt-BR">Português (BR)</option>
-        <option value="en">English</option>
-        <option value="es">Español</option>
-      </select>
+      <Seletor rotulo="Idioma da conversa" valor={idioma} opcoes={IDIOMAS} abrirPara="cima" aoMudar={(v) => void salvar({ idioma: v })} />
       <div className="espaco" />
     </div>
   );

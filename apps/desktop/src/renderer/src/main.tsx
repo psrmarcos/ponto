@@ -6,7 +6,10 @@ import { iniciarDominio } from './estado/dominio';
 import { iniciarChat } from './estado/chat';
 import { iniciarTranscricao } from './estado/transcricao';
 import { api } from './api/cliente';
+import { instalarDicas } from './ui/dicas';
 import './styles.css';
+
+instalarDicas();
 
 iniciarEstadoApp();
 
