@@ -5,6 +5,7 @@ import { AgentesService } from '../../agentes/agentes.service';
 import { EventosService } from '../../eventos/eventos.service';
 import { UsoService } from '../../uso/uso.service';
 import { SessoesService } from '../../sessoes/sessoes.service';
+import { TranscricaoService } from '../../transcricao/transcricao.service';
 import { ProvedoresService } from '../provedores/provedores.service';
 import { ErroProvedor } from '../provedores/provedor';
 import { montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior } from './prompt';
@@ -13,6 +14,8 @@ import { montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior
 const INTERVALO_DELTA_MS = 40;
 const MAX_TOKENS = 800;
 const MAX_TOKENS_RACIOCINIO = 2500;
+/** Quanto o chat espera por falas ainda em transcrição antes de responder. */
+const ESPERA_TRANSCRICAO_MS = 1200;
 
 interface Conversa {
   historico: TrocaAnterior[];
@@ -32,6 +35,7 @@ export class ChatService {
     private readonly eventos: EventosService,
     private readonly uso: UsoService,
     private readonly sessoes: SessoesService,
+    private readonly transcricao: TranscricaoService,
   ) {}
 
   /** Começa a responder em segundo plano e devolve o id da resposta na hora. */
@@ -80,6 +84,8 @@ export class ChatService {
       const agente = await this.agentes.obter(pedido.agenteId).catch(() => this.agentes.obter('geral'));
       const modelo = agente.modelo ?? config.modeloPadrao;
       const provedor = this.provedores.obter(config.provedorPadrao);
+      // A última fala (normalmente a pergunta) pode estar a 1-2 s de virar texto: espera no máximo 1,2 s por ela e segue sem (rapidez vale mais).
+      if (pedido.sessaoId) await this.transcricao.aguardarPendentes(pedido.sessaoId, ESPERA_TRANSCRICAO_MS);
       const transcricao = pedido.sessaoId ? await this.sessoes.contextoRecente(pedido.sessaoId).catch(() => null) : null;
       const mensagens = montarMensagens({ agente, config, historico: conversa.historico, pedido, transcricao });
 

@@ -20,6 +20,7 @@ const INTERVALO_AVISO_MS = 15_000;
 interface Tarefa {
   trecho: TrechoAudio;
   wav: Buffer;
+  pronto: () => void;
 }
 
 /**
@@ -33,6 +34,8 @@ export class TranscricaoService {
   private readonly fila: Tarefa[] = [];
   private ativos = 0;
   private ultimoAviso = new Map<string, number>();
+  /** Transcrições em andamento por sessão (na fila ou no provedor). */
+  private pendentes = new Map<string, Set<Promise<void>>>();
   private readonly provedores: Record<IdProvedorStt, ProvedorStt>;
 
   constructor(
@@ -47,8 +50,24 @@ export class TranscricaoService {
   }
 
   enfileirar(trecho: TrechoAudio, wav: Buffer): void {
-    this.fila.push({ trecho, wav });
+    let pronto!: () => void;
+    const p = new Promise<void>((ok) => (pronto = ok));
+    const daSessao = this.pendentes.get(trecho.sessaoId) ?? new Set();
+    daSessao.add(p);
+    this.pendentes.set(trecho.sessaoId, daSessao);
+    this.fila.push({ trecho, wav, pronto: () => (daSessao.delete(p), pronto()) });
     this.puxar();
+  }
+
+  /**
+   * Espera as falas que ainda estão sendo transcritas, até `maxMs`. O chat chama
+   * isto antes de montar o contexto: quem clica em "O que devo dizer?" logo
+   * depois da pergunta precisa que a pergunta já esteja no texto.
+   */
+  async aguardarPendentes(sessaoId: string, maxMs: number): Promise<void> {
+    const daSessao = this.pendentes.get(sessaoId);
+    if (!daSessao?.size) return;
+    await Promise.race([Promise.allSettled([...daSessao]), new Promise((ok) => setTimeout(ok, maxMs))]);
   }
 
   private puxar(): void {
@@ -56,6 +75,7 @@ export class TranscricaoService {
       const t = this.fila.shift()!;
       this.ativos++;
       void this.processar(t).finally(() => {
+        t.pronto();
         this.ativos--;
         this.puxar();
       });

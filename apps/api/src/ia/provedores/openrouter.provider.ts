@@ -7,7 +7,7 @@ import { lerSse } from './sse';
 
 const BASE = 'https://openrouter.ai/api/v1';
 /** Modelos que raciocinam sem ser pedidos; neles o modo normal manda esforço mínimo. */
-const PENSA_POR_PADRAO = /^(google|openai)\//;
+const PENSA_POR_PADRAO = /^(google\/|openai\/(gpt-5|o[0-9]))/;
 const UMA_HORA = 60 * 60 * 1000;
 
 interface ModeloOpenRouter {

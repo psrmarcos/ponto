@@ -9,5 +9,6 @@ import { TranscricaoService } from './transcricao.service';
   imports: [SessoesModule],
   controllers: [TranscricaoController],
   providers: [TranscricaoService, OpenRouterStt, DeepgramStt],
+  exports: [TranscricaoService],
 })
 export class TranscricaoModule {}
