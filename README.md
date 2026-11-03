@@ -70,7 +70,12 @@ Todos podem ser trocados em Home → Configurações.
   Cada fala é cortada no PC (detector de silêncio) e transcrita por OpenRouter (Whisper turbo) ou
   Deepgram (Nova-3). O trecho recente da call vai como contexto para o chat. Use fone: sem ele o
   microfone ouve o alto-falante (o app descarta o eco mais óbvio).
-- **M2**: cérebro em dois níveis: Jev decide quando e como responder, o modelo escolhido
-  escreve; leitura da tela; controle de gasto (ver `docs/economia-de-tokens.md`).
-- **M3**: resumo da reunião e exportação em .md.
+- **M2** (feito): o Jev percebe quando perguntam algo para você e a resposta começa sozinha;
+  leitura da tela (Ctrl+Shift+S); controle de gasto (ver `docs/economia-de-tokens.md`).
+- **M3** (feito): ata da call ao encerrar, página Sessões na Home e exportação em .md
+  (Documentos/Ponto). No chat a transcrição vai em pedaços, só acrescentando (o provedor
+  reaproveita o cache), e o começo de calls longas vira um resumo contínuo.
+- **Modo invisível**: não use `<select>`, `<datalist>` nem `title` no renderer. Essas
+  janelinhas nativas aparecem na gravação mesmo com o modo ligado; use `ui/Seletor.tsx` e as
+  dicas de `ui/dicas.ts`.
 - **M4**: instalador para Windows/macOS/Linux.
