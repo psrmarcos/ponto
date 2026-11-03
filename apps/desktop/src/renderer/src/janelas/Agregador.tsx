@@ -369,7 +369,7 @@ function SeletorAgente() {
       botao={({ aberto, alternar }) => (
         <button type="button" className="chip" aria-haspopup="menu" aria-expanded={aberto} title="Agente" onClick={alternar}>
           <Robot size={14} />
-          <span>{atual?.nome ?? 'Geral'}</span>
+          <span className="chip-texto">{atual?.nome ?? 'Geral'}</span>
           <CaretDown size={12} weight="bold" />
         </button>
       )}

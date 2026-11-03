@@ -28,7 +28,7 @@ export function instalarDicas(): void {
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['title'] });
 
   const dica = document.createElement('div');
-  dica.className = 'dica';
+  dica.className = 'dica-flutuante';
   dica.setAttribute('role', 'tooltip');
   document.body.appendChild(dica);
 
