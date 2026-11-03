@@ -61,7 +61,9 @@ class MotorCaptura {
 
     const sessao = await api.post<Sessao>('/sessoes', {});
     this.sessao = sessao;
-    const ctx = new AudioContext({ latencyHint: 'playback' });
+    // Pedimos 16 kHz direto: o Chromium reamostra com filtro de qualidade, melhor que fazer na mão.
+    // Se a placa não aceitar, o coletor reamostra a partir da taxa nativa.
+    const ctx = criarContexto();
     this.ctx = ctx;
     await ctx.audioWorklet.addModule(URL_COLETOR);
 
@@ -190,6 +192,14 @@ class MotorCaptura {
   private publicar(parcial: Partial<EstadoCaptura>): void {
     this.estado = { ...this.estado, ...parcial };
     window.ponto.enviar('captura.status', this.estado);
+  }
+}
+
+function criarContexto(): AudioContext {
+  try {
+    return new AudioContext({ sampleRate: 16_000, latencyHint: 'playback' });
+  } catch {
+    return new AudioContext({ latencyHint: 'playback' });
   }
 }
 
