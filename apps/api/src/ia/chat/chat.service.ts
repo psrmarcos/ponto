@@ -119,8 +119,16 @@ export class ChatService {
         this.eventos.emitir({ tipo: 'chat.fim', respostaId, uso: null });
         return;
       }
-      const mensagem = e instanceof ErroProvedor || e instanceof Error ? e.message : 'Erro inesperado.';
-      this.log.warn(`falhou: ${mensagem}`);
+      const causa = (e as { cause?: { code?: string } } | null)?.cause?.code;
+      this.log.warn(`falhou: ${(e as Error)?.message}${causa ? ` (${causa})` : ''}`);
+      const mensagem =
+        e instanceof ErroProvedor
+          ? e.message
+          : e instanceof TypeError || causa
+            ? 'Não consegui falar com o provedor de IA. Verifique a internet e tente de novo.'
+            : e instanceof Error
+              ? e.message
+              : 'Erro inesperado.';
       this.eventos.emitir({ tipo: 'chat.erro', respostaId, mensagem });
     } finally {
       if (conversa.emAndamento === controle) conversa.emAndamento = null;

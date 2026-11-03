@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ModeloIa, ResultadoTesteChave } from '@ponto/shared';
 import { SegredosService } from '../../segredos/segredos.service';
 import { ErroProvedor, type MensagemIa, type PedacoGeracao, type PedidoGeracao, type ProvedorIa } from './provedor';
+import { http } from '../../comum/http';
 import { lerSse } from './sse';
 
 const BASE = 'https://openrouter.ai/api/v1';
@@ -60,7 +61,7 @@ export class OpenRouterProvider implements ProvedorIa {
 
   async testarChave(): Promise<ResultadoTesteChave> {
     try {
-      const r = await fetch(`${BASE}/key`, { headers: this.cabecalhos(), signal: AbortSignal.timeout(10_000) });
+      const r = await http(`${BASE}/key`, { headers: this.cabecalhos(), signal: AbortSignal.timeout(10_000) });
       if (r.status === 401) return { ok: false, mensagem: 'Chave recusada pelo OpenRouter.' };
       if (!r.ok) return { ok: false, mensagem: `OpenRouter respondeu ${r.status}.` };
       const { data } = (await r.json()) as { data?: { limit_remaining?: number | null; label?: string } };
@@ -73,7 +74,7 @@ export class OpenRouterProvider implements ProvedorIa {
 
   async listarModelos(): Promise<ModeloIa[]> {
     if (this.modelosCache && Date.now() - this.modelosCache.em < UMA_HORA) return this.modelosCache.lista;
-    const r = await fetch(`${BASE}/models`, { signal: AbortSignal.timeout(15_000) });
+    const r = await http(`${BASE}/models`, { signal: AbortSignal.timeout(15_000) });
     if (!r.ok) throw new ErroProvedor(`OpenRouter respondeu ${r.status} ao listar modelos.`, r.status);
     const { data } = (await r.json()) as { data: ModeloOpenRouter[] };
     const porMilhao = (v?: string): number | null => (v === undefined || Number(v) < 0 ? null : Number(v) * 1e6);
@@ -108,7 +109,7 @@ export class OpenRouterProvider implements ProvedorIa {
     // medido com gemini-3.8-flash, 5,9 s e 478 tokens de saída contra 2,6 s e 36 com 'minimal'.
     else if (PENSA_POR_PADRAO.test(pedido.modelo)) corpo.reasoning = { effort: 'minimal', exclude: true };
 
-    const r = await fetch(`${BASE}/chat/completions`, {
+    const r = await http(`${BASE}/chat/completions`, {
       method: 'POST',
       headers: this.cabecalhos(),
       body: JSON.stringify(corpo),
