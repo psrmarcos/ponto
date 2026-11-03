@@ -16,6 +16,8 @@ async function iniciar(): Promise<void> {
   app.useWebSocketAdapter(new WsAdapter(app));
   // Os trechos de áudio chegam como WAV cru (sem base64: 33% menor e sem custo de conversão).
   app.useBodyParser('raw', { type: 'audio/wav', limit: MAX_BYTES_TRECHO });
+  // Pedidos de chat podem levar imagens em base64 (print da tela, anexos de até 8 MB).
+  app.useBodyParser('json', { limit: '40mb' });
   // As janelas carregam de file:// (origem "null") ou do Vite em dev. O token é o que protege de fato.
   app.enableCors({
     origin: (origem: string | undefined, ok: (erro: Error | null, permitir?: boolean) => void) => ok(null, !origem || origem === 'null' || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origem)),
