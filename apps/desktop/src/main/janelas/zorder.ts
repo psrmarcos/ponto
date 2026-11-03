@@ -18,17 +18,27 @@ export class ZOrderService {
     this.pilha.push(win);
     win.setAlwaysOnTop(true, 'screen-saver');
     win.on('closed', () => (this.pilha = this.pilha.filter((w) => w !== win)));
-    // 'will-move' dispara durante o arraste no Windows e macOS.
+    // Arrastar pela área -webkit-app-region nem sempre dispara 'will-move' no Windows;
+    // 'move' dispara a cada passo do arraste. Cobrimos os dois.
     win.on('will-move', () => this.promover(win));
+    win.on('move', () => this.promover(win));
+    win.on('will-resize', () => this.promover(win));
     win.on('focus', () => this.promover(win));
     win.on('show', () => this.promover(win));
-    // Alguns apps tiram o topmost de quem perde o foco: reafirma.
-    win.on('blur', () => !win.isDestroyed() && win.setAlwaysOnTop(true, 'screen-saver'));
+    // Alguns apps tiram o topmost de quem perde o foco: reafirma. Mas setAlwaysOnTop joga a
+    // janela para o topo da faixa "sempre no topo", então logo em seguida refazemos a ordem,
+    // senão a janela que perdeu o foco passaria na frente da que você acabou de arrastar.
+    win.on('blur', () => {
+      if (win.isDestroyed()) return;
+      win.setAlwaysOnTop(true, 'screen-saver');
+      this.reafirmar();
+    });
   }
 
   promover(win: BrowserWindow): void {
     if (win.isDestroyed()) return;
-    if (this.pilha.at(-1) !== win) this.pilha = [...this.pilha.filter((w) => w !== win), win];
+    if (this.pilha.at(-1) === win) return; // já é a de cima: nada a fazer a cada pixel do arraste
+    this.pilha = [...this.pilha.filter((w) => w !== win), win];
     win.moveTop();
   }
 
