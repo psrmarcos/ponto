@@ -16,11 +16,12 @@ interface ModeloOpenRouter {
   context_length?: number;
   pricing?: { prompt?: string; completion?: string };
   architecture?: { input_modalities?: string[] };
+  supported_parameters?: string[];
 }
 
 interface PedacoOpenRouter {
   model?: string;
-  choices?: Array<{ delta?: { content?: string | null } }>;
+  choices?: Array<{ delta?: { content?: string | null }; finish_reason?: string | null }>;
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -40,6 +41,8 @@ export class OpenRouterProvider implements ProvedorIa {
   readonly implementado = true;
   private readonly log = new Logger('OpenRouter');
   private modelosCache: { em: number; lista: ModeloIa[] } | null = null;
+  /** Modelos que aceitam o parâmetro `reasoning` (vem junto da lista de modelos). */
+  private raciocinam = new Set<string>();
 
   constructor(private readonly segredos: SegredosService) {}
 
@@ -77,6 +80,7 @@ export class OpenRouterProvider implements ProvedorIa {
     const r = await http(`${BASE}/models`, { signal: AbortSignal.timeout(15_000) });
     if (!r.ok) throw new ErroProvedor(`OpenRouter respondeu ${r.status} ao listar modelos.`, r.status);
     const { data } = (await r.json()) as { data: ModeloOpenRouter[] };
+    this.raciocinam = new Set(data.filter((m) => m.supported_parameters?.includes('reasoning')).map((m) => m.id));
     const porMilhao = (v?: string): number | null => (v === undefined || Number(v) < 0 ? null : Number(v) * 1e6);
     const lista = data
       .filter((m) => !m.id.endsWith(':batch'))
@@ -108,6 +112,9 @@ export class OpenRouterProvider implements ProvedorIa {
     // Gemini e GPT pensam por padrão mesmo sem pedir. Numa call isso custa segundos e tokens:
     // medido com gemini-3.8-flash, 5,9 s e 478 tokens de saída contra 2,6 s e 36 com 'minimal'.
     else if (PENSA_POR_PADRAO.test(pedido.modelo)) corpo.reasoning = { effort: 'minimal', exclude: true };
+    // DeepSeek, Qwen e afins também pensam por padrão, e o raciocínio pode gastar todo o
+    // max_tokens antes de sair texto (resposta vazia). Nesses dá para desligar de vez.
+    else if (await this.aceitaRaciocinio(pedido.modelo)) corpo.reasoning = { enabled: false };
 
     const r = await http(`${BASE}/chat/completions`, {
       method: 'POST',
@@ -122,12 +129,18 @@ export class OpenRouterProvider implements ProvedorIa {
     }
 
     let modelo = pedido.modelo;
+    let teveTexto = false;
+    let fim: string | null | undefined;
     for await (const bruto of lerSse(r.body)) {
       const p = bruto as PedacoOpenRouter;
       if (p.error) throw new ErroProvedor(p.error.message ?? 'Erro do provedor no meio da resposta.', p.error.code);
       if (p.model) modelo = p.model;
       const texto = p.choices?.[0]?.delta?.content;
-      if (texto) yield { tipo: 'texto', texto };
+      if (texto) {
+        teveTexto = true;
+        yield { tipo: 'texto', texto };
+      }
+      if (p.choices?.[0]?.finish_reason) fim = p.choices[0].finish_reason;
       if (p.usage) {
         yield {
           tipo: 'uso',
@@ -141,6 +154,18 @@ export class OpenRouterProvider implements ProvedorIa {
         };
       }
     }
+    if (!teveTexto && !sinal.aborted) {
+      throw new ErroProvedor(
+        fim === 'length'
+          ? 'O modelo gastou o limite pensando e não respondeu. Tente outro modelo ou desligue o raciocínio.'
+          : 'O modelo não devolveu texto. Tente de novo ou troque de modelo.',
+      );
+    }
+  }
+
+  private async aceitaRaciocinio(modelo: string): Promise<boolean> {
+    if (!this.modelosCache) await this.listarModelos().catch(() => undefined);
+    return this.raciocinam.has(modelo);
   }
 
   private converter(m: MensagemIa, modelo: string): unknown {
