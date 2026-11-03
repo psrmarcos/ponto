@@ -58,14 +58,18 @@ docs/             decisões e pesquisas (economia de tokens, Jev)
 | Tela | Ctrl+Shift+E |
 | Home | Ctrl+Shift+O |
 | Ler a tela | Ctrl+Shift+S |
+| Gravar / pausar a transcrição | Ctrl+Shift+G |
 | Fechar o app | Ctrl+Shift+Q |
 
 Todos podem ser trocados em Home → Configurações.
 
 ## Roadmap
 
-- **M0** (este): base, janelas, stealth, Home, chave de API e chat com OpenRouter.
-- **M1**: captura de áudio (microfone + sistema, sem entrar na reunião) e transcrição ao vivo.
+- **M0** (feito): base, janelas, stealth, Home, chave de API e chat com OpenRouter.
+- **M1** (feito): captura de áudio (microfone + sistema, sem entrar na reunião) e transcrição ao vivo.
+  Cada fala é cortada no PC (detector de silêncio) e transcrita por OpenRouter (Whisper turbo) ou
+  Deepgram (Nova-3). O trecho recente da call vai como contexto para o chat. Use fone: sem ele o
+  microfone ouve o alto-falante (o app descarta o eco mais óbvio).
 - **M2**: cérebro em dois níveis: Jev decide quando e como responder, o modelo escolhido
   escreve; leitura da tela; controle de gasto (ver `docs/economia-de-tokens.md`).
 - **M3**: resumo da reunião e exportação em .md.
