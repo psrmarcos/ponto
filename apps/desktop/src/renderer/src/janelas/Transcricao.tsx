@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowDown, Microphone, Pause, Play, Record, SpeakerHigh, Stop, Waveform } from '@phosphor-icons/react';
+import { ArrowDown, ArrowCounterClockwise, Broom, Microphone, Pause, Play, Record, SpeakerHigh, Stop, Waveform } from '@phosphor-icons/react';
 import type { Configuracoes, Fala } from '@ponto/shared';
 import { useCaptura, useEstadoApp } from '../estado/app';
 import { useDominio } from '../estado/dominio';
@@ -28,6 +28,7 @@ export function Transcricao() {
           meta={captura.status !== 'parada' && <AoVivo pausada={captura.status === 'pausada'} desde={captura.iniciadaEm} />}
         />
         <ListaFalas falas={falas} gravando={gravando} parada={captura.status === 'parada'} />
+        <Desfazer />
         {aviso && <div className="aviso-transcricao" role="status">{aviso}</div>}
         {captura.status !== 'parada' && <Medidores fontes={captura.fontes} />}
         <Rodape />
@@ -167,6 +168,7 @@ function Rodape() {
       <button type="button" className="icone" aria-label="Encerrar sessão" title="Encerrar sessão" disabled={status === 'parada'} onClick={() => comandar('parar')}>
         <Stop size={12} weight="fill" />
       </button>
+      <BotaoLimpar />
       <select
         aria-label="Idioma da conversa"
         value={idioma}
@@ -178,6 +180,57 @@ function Rodape() {
         <option value="es">Español</option>
       </select>
       <div className="espaco" />
+    </div>
+  );
+}
+
+/**
+ * Limpar apaga a conversa (inclusive do contexto do chat), então pede um segundo
+ * clique para confirmar e ainda deixa desfazer por alguns segundos.
+ */
+function BotaoLimpar() {
+  const temFalas = useTranscricao((s) => s.falas.length > 0);
+  const limpar = useTranscricao((s) => s.limpar);
+  const [confirmando, setConfirmando] = useState(false);
+  useEffect(() => {
+    if (!confirmando) return;
+    const t = setTimeout(() => setConfirmando(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmando]);
+
+  if (confirmando) {
+    return (
+      <button
+        type="button"
+        className="btn-limpar confirmar"
+        onClick={() => {
+          setConfirmando(false);
+          limpar();
+        }}
+        onBlur={() => setConfirmando(false)}
+        autoFocus
+      >
+        <Broom size={13} /> Limpar tudo?
+      </button>
+    );
+  }
+  return (
+    <button type="button" className="icone" aria-label="Limpar transcrição" title="Limpar transcrição" disabled={!temFalas} onClick={() => setConfirmando(true)}>
+      <Broom size={14} />
+    </button>
+  );
+}
+
+function Desfazer() {
+  const desfazivel = useTranscricao((s) => s.desfazivel);
+  const desfazer = useTranscricao((s) => s.desfazer);
+  if (!desfazivel) return null;
+  return (
+    <div className="desfazer-transcricao" role="status">
+      <span>Transcrição limpa ({desfazivel.falas.length} {desfazivel.falas.length === 1 ? 'fala' : 'falas'}).</span>
+      <button type="button" onClick={desfazer}>
+        <ArrowCounterClockwise size={12} weight="bold" /> Desfazer
+      </button>
     </div>
   );
 }

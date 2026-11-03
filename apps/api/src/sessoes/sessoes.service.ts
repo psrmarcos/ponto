@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, lte } from 'drizzle-orm';
 import type { CanalAudio, Fala, Sessao } from '@ponto/shared';
 import { novoId } from '../comum/id';
 import { BANCO } from '../db/db.module';
@@ -41,6 +41,15 @@ export class SessoesService {
 
   async falas(sessaoId: string): Promise<Fala[]> {
     return this.banco.select().from(falas).where(eq(falas.sessaoId, sessaoId)).orderBy(asc(falas.inicioMs));
+  }
+
+  /**
+   * Apaga as falas da sessão até `ateMs` (início da fala). O limite protege as
+   * falas que chegaram depois de a pessoa pedir para limpar.
+   */
+  async limparFalas(sessaoId: string, ateMs: number): Promise<void> {
+    await this.banco.delete(falas).where(and(eq(falas.sessaoId, sessaoId), lte(falas.inicioMs, ateMs)));
+    this.eventos.emitir({ tipo: 'transcricao.limpa', sessaoId, ateMs });
   }
 
   async adicionarFala(dados: { sessaoId: string; canal: CanalAudio; texto: string; inicioMs: number; fimMs: number }): Promise<Fala> {

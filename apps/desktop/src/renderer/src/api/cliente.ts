@@ -62,6 +62,9 @@ class ClienteApi {
   post<T>(caminho: string, corpo?: unknown): Promise<T> {
     return this.pedir<T>('POST', caminho, corpo);
   }
+  delete<T = void>(caminho: string): Promise<T> {
+    return this.pedir<T>('DELETE', caminho);
+  }
   patch<T>(caminho: string, corpo: unknown): Promise<T> {
     return this.pedir<T>('PATCH', caminho, corpo);
   }

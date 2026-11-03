@@ -140,6 +140,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('configuracoes'), configuracoes: Configuracoes }),
   z.object({ tipo: z.literal('uso'), resumo: ResumoUso }),
   z.object({ tipo: z.literal('transcricao.fala'), fala: Fala }),
+  /** Falas apagadas (até `ateMs`, inclusive). */
+  z.object({ tipo: z.literal('transcricao.limpa'), sessaoId: z.string(), ateMs: z.number() }),
   z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),
 ]);
 export type EventoWs = z.infer<typeof EventoWs>;

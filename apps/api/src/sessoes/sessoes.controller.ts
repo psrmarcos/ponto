@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { NovaSessao, type Fala, type Sessao } from '@ponto/shared';
 import { ZodPipe } from '../comum/zod.pipe';
 import { SessoesService } from './sessoes.service';
@@ -20,6 +20,14 @@ export class SessoesController {
   @Get(':id/falas')
   falas(@Param('id') id: string): Promise<Fala[]> {
     return this.sessoes.falas(id);
+  }
+
+  @Delete(':id/falas')
+  @HttpCode(204)
+  async limpar(@Param('id') id: string, @Query('ateMs') ateMs: string): Promise<void> {
+    const limite = Number(ateMs);
+    if (!Number.isFinite(limite)) throw new BadRequestException({ mensagem: 'Informe ateMs.' });
+    await this.sessoes.limparFalas(id, limite);
   }
 
   @Post(':id/encerrar')
