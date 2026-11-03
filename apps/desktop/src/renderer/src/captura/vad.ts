@@ -60,6 +60,11 @@ export class DetectorFala {
 
   constructor(private readonly o: OpcoesVad = VAD_PADRAO) {}
 
+  /** Se está no meio de uma fala agora. */
+  get emFala(): boolean {
+    return this.falando;
+  }
+
   /** Volume atual de 0 a 1, suavizado, para o medidor. */
   get nivel(): number {
     return this._nivel;

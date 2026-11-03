@@ -18,6 +18,13 @@ import { paraWav } from './wav';
  */
 
 const INTERVALO_NIVEIS_MS = 100;
+/**
+ * Sem fone, o microfone escuta o alto-falante e a fala do outro volta como se
+ * fosse sua. Uma fala do microfone que acontece na maior parte (70%+ do tempo) enquanto o
+ * áudio do sistema também tem fala é tratada como eco e descartada.
+ */
+const LIMITE_ECO = 0.7;
+const GUARDAR_ECO_MS = 60_000;
 const URL_COLETOR = new URL('./coletor.worklet.js', document.baseURI).href;
 
 interface Canal {
@@ -40,6 +47,8 @@ class MotorCaptura {
   private timerNiveis: ReturnType<typeof setInterval> | null = null;
   /** Os comandos rodam um de cada vez (iniciar e parar logo em seguida não se atropelam). */
   private fila: Promise<void> = Promise.resolve();
+  /** Quadros (índice de 20 ms da sessão) em que o áudio do sistema estava com fala. */
+  private falaSistema = new Set<number>();
 
   comandar(c: ComandoCaptura): void {
     this.fila = this.fila.then(() => this.executar(c)).catch((e: unknown) => {
@@ -132,12 +141,33 @@ class MotorCaptura {
     canal.quadros++;
     if (this.estado.status !== 'gravando') return;
     const trecho = canal.detector.processar(quadro, tMs);
+    if (canal.id === 'sistema' && canal.detector.emFala) this.marcarFalaSistema(tMs);
     if (trecho) this.enviar(canal.id, trecho);
+  }
+
+  private marcarFalaSistema(tMs: number): void {
+    const q = Math.floor(tMs / MS_QUADRO);
+    this.falaSistema.add(q);
+    // Limpa de tempos em tempos o que já não serve para comparar.
+    if (q % 500 === 0) {
+      const limite = q - GUARDAR_ECO_MS / MS_QUADRO;
+      for (const x of this.falaSistema) if (x < limite) this.falaSistema.delete(x);
+    }
+  }
+
+  private provavelEco(t: TrechoFala): boolean {
+    const de = Math.floor(t.inicioMs / MS_QUADRO);
+    const ate = Math.floor(t.fimMs / MS_QUADRO);
+    if (ate <= de) return false;
+    let juntos = 0;
+    for (let q = de; q < ate; q++) if (this.falaSistema.has(q)) juntos++;
+    return juntos / (ate - de) >= LIMITE_ECO;
   }
 
   private enviar(canal: CanalAudio, t: TrechoFala): void {
     const sessao = this.sessao;
     if (!sessao) return;
+    if (canal === 'microfone' && this.provavelEco(t)) return;
     const q = new URLSearchParams({ sessaoId: sessao.id, canal, inicioMs: String(t.inicioMs), fimMs: String(t.fimMs) });
     api.enviarAudio(`/transcricao/trechos?${q}`, paraWav(t.amostras)).catch((e: unknown) => {
       console.warn('trecho não enviado', e);
@@ -185,6 +215,7 @@ class MotorCaptura {
       c.stream.getTracks().forEach((t) => t.stop());
     }
     this.canais = [];
+    this.falaSistema.clear();
     await this.ctx?.close().catch(() => {});
     this.ctx = null;
   }

@@ -69,7 +69,8 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   modeloRapido: 'google/gemini-3.5-flash-lite',
   sugestoesAutomaticas: true,
   webPorPadrao: false,
-  idioma: 'auto',
+  // Fixar o idioma evita que ruído vire frase em outra língua.
+  idioma: 'pt-BR',
   provedorStt: 'openrouter',
   modeloStt: INFO_PROVEDORES_STT.openrouter.modeloPadrao,
   tetoSessaoUsd: 1,
