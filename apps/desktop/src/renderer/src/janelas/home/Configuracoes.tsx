@@ -175,33 +175,57 @@ function preco(modelos: ModeloIa[], id: string): string {
 }
 const fmt = (v: number) => (v < 1 ? v.toFixed(3) : v.toFixed(2));
 
+/** Campo de id de modelo com sugestões desenhadas na página (o <datalist> nativo vaza na gravação). */
 function CampoModelo({ valor, modelos, aoSalvar }: { valor: string; modelos: ModeloIa[]; aoSalvar: (m: string) => void }) {
   const [texto, setTexto] = useState(valor);
+  const [aberto, setAberto] = useState(false);
   useEffect(() => setTexto(valor), [valor]);
-  const id = useMemo(() => `modelos-${Math.random().toString(36).slice(2)}`, []);
   const invalido = modelos.length > 0 && !modelos.some((m) => m.id === texto);
+  const sugestoes = useMemo(() => {
+    const termos = texto.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!termos.length || !invalido) return [];
+    return modelos.filter((m) => termos.every((t) => m.id.toLowerCase().includes(t) || m.nome.toLowerCase().includes(t))).slice(0, 8);
+  }, [texto, modelos, invalido]);
+  const escolher = (id: string) => {
+    setTexto(id);
+    setAberto(false);
+    if (id !== valor) aoSalvar(id);
+  };
 
   return (
-    <>
+    <div className="ancora">
       <input
         className={`campo-texto${invalido ? ' erro' : ''}`}
-        list={id}
         value={texto}
         spellCheck={false}
+        autoComplete="off"
         aria-label="Modelo"
-        onChange={(e) => setTexto(e.target.value)}
+        onFocus={() => setAberto(true)}
+        onChange={(e) => {
+          setTexto(e.target.value);
+          setAberto(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && sugestoes[0]) escolher(sugestoes[0].id);
+          if (e.key === 'Escape') setAberto(false);
+        }}
         onBlur={() => {
+          // Deixa o clique na sugestão acontecer antes de fechar.
+          setTimeout(() => setAberto(false), 150);
           if (!invalido && texto !== valor) aoSalvar(texto);
         }}
       />
-      <datalist id={id}>
-        {modelos.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.nome}
-          </option>
+      <div className={`menu seletor direita${aberto && sugestoes.length ? ' aberto' : ''}`} role="listbox">
+        {sugestoes.map((m) => (
+          <button type="button" key={m.id} className="item" role="option" aria-selected={false} onMouseDown={(e) => e.preventDefault()} onClick={() => escolher(m.id)}>
+            <span className="rotulo">
+              {m.nome}
+              <span className="sub" style={{ display: 'block' }}>{m.id}</span>
+            </span>
+          </button>
         ))}
-      </datalist>
-    </>
+      </div>
+    </div>
   );
 }
 
