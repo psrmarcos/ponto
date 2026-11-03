@@ -46,6 +46,11 @@ export const contratoIpc = {
     'captura.comandar': { entrada: ComandoCaptura, saida: nada },
     /** Tira um print da tela onde está o cursor e manda para o chat analisar. */
     'tela.ler': { entrada: nada, saida: nada },
+    /** Print para recortar: só devolve a imagem (maior), sem mandar para a IA. */
+    'tela.capturar': { entrada: nada, saida: z.object({ dataUrl: z.string(), em: z.number() }) },
+    /** Manda uma imagem já pronta (ex.: o recorte) para o chat analisar. */
+    'tela.enviar': { entrada: z.object({ dataUrl: z.string().startsWith('data:image/').max(6_000_000) }), saida: nada },
+    'tela.auto': { entrada: z.object({ ligado: z.boolean() }), saida: nada },
     /** Salva um .md em Documentos/Ponto, sem diálogo (diálogos do sistema aparecem em gravações). */
     'arquivo.salvarMarkdown': {
       entrada: z.object({ nome: z.string().min(1).max(160), conteudo: z.string().max(20_000_000) }),
@@ -66,7 +71,7 @@ export const contratoIpc = {
     estado: EstadoApp,
     'chat.alternar': nada,
     /** Print pronto (JPEG reduzido). O chat manda para a IA; a janela Tela mostra a prévia. */
-    'tela.lida': z.object({ dataUrl: z.string(), em: z.number() }),
+    'tela.lida': z.object({ dataUrl: z.string(), em: z.number(), origem: z.enum(['manual', 'recorte', 'auto']) }),
     /** Para a janela de captura: o que fazer. */
     'captura.comando': ComandoCaptura,
     /** Para as janelas visíveis, enquanto grava. */

@@ -48,6 +48,8 @@ export const EstadoApp = z.object({
   atalhosComErro: z.array(AcaoAtalho),
   api: z.object({ status: StatusApi }),
   captura: EstadoCaptura,
+  /** Leitura automática da tela: lê sozinho quando a tela muda. Só na memória (desliga ao fechar o app). */
+  telaAuto: z.boolean(),
   /** Quais chaves de API estão cadastradas (nunca o valor). */
   chavesConfiguradas: z.array(IdSegredo),
   plataforma: z.enum(['win32', 'darwin', 'linux']),

@@ -160,6 +160,25 @@ export type GastoPorOrigem = z.infer<typeof GastoPorOrigem>;
 
 // ---------- Chat ----------
 
+/** O que vai em cada chamada do chat, por parte, para a janela de contexto. */
+export const ParteContexto = z.enum(['instrucoes', 'perfil', 'resumoCall', 'resumoConversa', 'historico', 'transcricao']);
+export type ParteContexto = z.infer<typeof ParteContexto>;
+
+export const ContextoConversa = z.object({
+  modelo: z.string(),
+  /** Janela de contexto do modelo em tokens, quando o provedor informa. */
+  limite: z.number().nullable(),
+  /** Estimativa (caracteres / 3,5) do que vai na próxima chamada, antes da pergunta nova. */
+  partes: z.array(z.object({ parte: ParteContexto, tokens: z.number().int() })),
+  totalEstimado: z.number().int(),
+  /** Números reais da última resposta, vindos do provedor. */
+  ultima: z.object({ tokensEntrada: z.number(), tokensCache: z.number(), tokensSaida: z.number() }).nullable(),
+  trocas: z.number().int(),
+  compactada: z.boolean(),
+  gastoUsd: z.number(),
+});
+export type ContextoConversa = z.infer<typeof ContextoConversa>;
+
 export const PedidoChat = z.object({
   /** Conversa à qual a mensagem pertence (o renderer gera e reusa). */
   conversaId: z.string().min(1).max(64),

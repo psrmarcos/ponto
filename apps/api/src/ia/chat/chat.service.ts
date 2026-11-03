@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { PedidoChat, UsoIa } from '@ponto/shared';
+import type { ContextoConversa, PedidoChat, UsoIa } from '@ponto/shared';
 import { ConfiguracoesService } from '../../configuracoes/configuracoes.service';
 import { AgentesService } from '../../agentes/agentes.service';
 import { EventosService } from '../../eventos/eventos.service';
@@ -8,7 +8,17 @@ import { SessoesService } from '../../sessoes/sessoes.service';
 import { TranscricaoService } from '../../transcricao/transcricao.service';
 import { ProvedoresService } from '../provedores/provedores.service';
 import { ErroProvedor, type ProvedorIa } from '../provedores/provedor';
-import { mensagemDoUsuario, montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior } from './prompt';
+import { TextoIaService } from '../texto-ia.service';
+import {
+  MAX_CHARS_RESPOSTA_ANTIGA,
+  mensagemDoUsuario,
+  montarMensagens,
+  PROMPT_COMPRIMIR,
+  textoDasInstrucoes,
+  textoDoPedido,
+  TROCAS_NO_HISTORICO,
+  type TrocaAnterior,
+} from './prompt';
 import type { ResumoParcial } from '../../sessoes/sessoes.service';
 
 /** Junta os pedacinhos do streaming e manda no máximo a cada N ms (menos mensagens, menos re-render). */
@@ -42,7 +52,17 @@ interface Conversa {
   gastoUsd: number;
   emAndamento: AbortController | null;
   call: CallNaConversa | null;
+  /** Resumo das trocas que saíram do histórico ao comprimir. */
+  resumo: string | null;
+  /** Da última resposta: para a janela de contexto. */
+  agenteId: string | null;
+  ultima: UsoIa | null;
 }
+
+const NOVA = (): Conversa => ({ historico: [], gastoUsd: 0, emAndamento: null, call: null, resumo: null, agenteId: null, ultima: null });
+
+/** Estimativa barata de tokens: em português dá uns 3,5 caracteres por token. */
+const tokens = (chars: number) => Math.ceil(chars / 3.5);
 
 @Injectable()
 export class ChatService {
@@ -57,7 +77,76 @@ export class ChatService {
     private readonly uso: UsoService,
     private readonly sessoes: SessoesService,
     private readonly transcricao: TranscricaoService,
+    private readonly textoIa: TextoIaService,
   ) {}
+
+  /** O que a próxima chamada desta conversa vai levar, por parte, e os números reais da última. */
+  async contexto(conversaId: string, agenteId?: string): Promise<ContextoConversa> {
+    const conversa = this.conversas.get(conversaId) ?? NOVA();
+    const config = await this.config.obter();
+    const id = agenteId ?? conversa.agenteId ?? config.agenteAtivo;
+    const agente = await this.agentes.obter(id).catch(() => this.agentes.obter('geral'));
+    const modelo = conversa.ultima?.modelo ?? agente.modelo ?? config.modeloPadrao;
+    const provedor = this.provedores.obter(config.provedorPadrao);
+    const lista = await provedor.listarModelos().catch(() => null);
+    const limite = lista?.find((m) => m.id === modelo)?.contexto ?? null;
+
+    const historico = conversa.historico.slice(-TROCAS_NO_HISTORICO);
+    const charsTranscricao = historico.reduce((n, t) => n + t.charsTranscricao, 0);
+    const charsHistorico = historico.reduce(
+      (n, t) => n + t.pergunta.length + Math.min(t.resposta.length, MAX_CHARS_RESPOSTA_ANTIGA),
+      0,
+    );
+    const perfil = (config.nomeUsuario?.length ?? 0) + (config.contextoUsuario?.length ?? 0);
+    const partes: ContextoConversa['partes'] = [
+      { parte: 'instrucoes', tokens: tokens(textoDasInstrucoes(agente).length) },
+      { parte: 'perfil', tokens: tokens(perfil) },
+      { parte: 'resumoCall', tokens: tokens(conversa.call?.resumo?.texto.length ?? 0) },
+      { parte: 'resumoConversa', tokens: tokens(conversa.resumo?.length ?? 0) },
+      { parte: 'historico', tokens: tokens(charsHistorico - charsTranscricao) },
+      { parte: 'transcricao', tokens: tokens(charsTranscricao) },
+    ];
+    const u = conversa.ultima;
+    return {
+      modelo,
+      limite,
+      partes,
+      totalEstimado: partes.reduce((n, p) => n + p.tokens, 0),
+      ultima: u ? { tokensEntrada: u.tokensEntrada, tokensCache: u.tokensCache, tokensSaida: u.tokensSaida } : null,
+      trocas: conversa.historico.length,
+      compactada: !!conversa.resumo,
+      gastoUsd: conversa.gastoUsd,
+    };
+  }
+
+  /**
+   * Comprime a conversa: as trocas viram um resumo curto que vai no começo das
+   * próximas chamadas. A transcrição já enviada volta pelo resumo da call e as
+   * falas desde ele.
+   */
+  async comprimir(conversaId: string, sessaoId?: string | null): Promise<ContextoConversa> {
+    const conversa = this.conversas.get(conversaId);
+    if (!conversa?.historico.length) return this.contexto(conversaId);
+    const trocas = conversa.historico
+      .map((t) => `Usuário: ${t.perguntaPura}\nAssistente: ${t.resposta.slice(0, 2000)}`)
+      .join('\n\n');
+    const anterior = conversa.resumo ? `Resumo do que veio antes:\n${conversa.resumo}\n\n` : '';
+    const resumo = await this.textoIa.gerar({
+      mensagens: [
+        { papel: 'system', conteudo: PROMPT_COMPRIMIR },
+        { papel: 'user', conteudo: `${anterior}Conversa:\n${trocas}` },
+      ],
+      origem: 'compressao_chat',
+      sessaoId: sessaoId ?? conversa.call?.sessaoId ?? null,
+      maxTokens: 600,
+      timeoutMs: 45_000,
+    });
+    if (!resumo) throw new ErroProvedor('O modelo não devolveu o resumo. Tente de novo.');
+    conversa.resumo = resumo;
+    conversa.historico = [];
+    conversa.call = null;
+    return this.contexto(conversaId);
+  }
 
   /** Começa a responder em segundo plano e devolve o id da resposta na hora. */
   /** `rotulo`: como a pergunta aparece no histórico salvo (ex.: a pergunta detectada na call). */
@@ -131,7 +220,7 @@ export class ChatService {
   private conversa(id: string): Conversa {
     let c = this.conversas.get(id);
     if (!c) {
-      c = { historico: [], gastoUsd: 0, emAndamento: null, call: null };
+      c = NOVA();
       this.conversas.set(id, c);
     }
     return c;
@@ -170,7 +259,9 @@ export class ChatService {
         pedido,
         transcricao: call?.texto,
         resumoCall: conversa.call?.resumo?.texto,
+        resumoConversa: conversa.resumo,
       });
+      conversa.agenteId = agente.id;
 
       this.eventos.emitir({ tipo: 'chat.inicio', conversaId: pedido.conversaId, respostaId, modelo });
 
@@ -210,6 +301,7 @@ export class ChatService {
         conversa.call = null;
       }
       if (uso) {
+        conversa.ultima = uso;
         conversa.gastoUsd += uso.custoUsd;
         await this.uso.registrar({ provedor: provedor.id, origem: 'chat', sessaoId: pedido.sessaoId ?? null, uso });
       }

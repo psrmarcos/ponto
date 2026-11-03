@@ -9,7 +9,7 @@ import { emitir, registrarIpc } from './ipc';
 import { GerenciadorJanelas, marcarEncerrando } from './janelas/gerenciador';
 import { PreferenciasService } from './preferencias';
 import { SegredosService } from './segredos';
-import { capturarTela } from './tela';
+import { capturarTela, LeituraAutomatica } from './tela';
 
 /**
  * Processo principal: o único que fala com o sistema operacional. Monta os
@@ -51,6 +51,7 @@ function iniciar(): void {
 
   const janelas = new GerenciadorJanelas(prefs, difundir);
   const captura = new CapturaService(difundir);
+  const leituraAuto = new LeituraAutomatica(() => lerTela('auto'), () => janelas.stealth.ligado && janelas.stealth.suportado);
   segredos.aoMudar(difundir);
   const api = new ApiHost(segredos, difundir);
   const atalhos = new AtalhosService(
@@ -72,9 +73,12 @@ function iniciar(): void {
   );
 
   /** Print da tela: o chat (agregador) manda para a IA e a janela Tela mostra a prévia. */
-  async function lerTela(): Promise<void> {
-    const dataUrl = await capturarTela();
-    const dados = { dataUrl, em: Date.now() };
+  async function lerTela(origem: 'manual' | 'auto' = 'manual'): Promise<void> {
+    difundirLeitura(await capturarTela(), origem);
+  }
+
+  function difundirLeitura(dataUrl: string, origem: 'manual' | 'recorte' | 'auto'): void {
+    const dados = { dataUrl, em: Date.now(), origem };
     for (const id of ['agregador', 'tela'] as const) {
       const w = janelas.obter(id);
       if (w) emitir(w.webContents, 'tela.lida', dados);
@@ -91,6 +95,7 @@ function iniciar(): void {
       atalhosComErro: atalhos.erros,
       api: { status: api.status },
       captura: captura.estado,
+      telaAuto: leituraAuto.ligada,
       chavesConfiguradas: IdSegredo.options.filter((id) => segredos.status()[id].configurado),
       plataforma: process.platform as EstadoApp['plataforma'],
       versao: app.getVersion(),
@@ -131,6 +136,13 @@ function iniciar(): void {
       'app.sair': () => app.quit(),
       'captura.comandar': (c) => captura.comandar(c),
       'tela.ler': () => lerTela(),
+      // Maior que o print normal: o recorte de um pedaço precisa continuar legível.
+      'tela.capturar': async () => ({ dataUrl: await capturarTela({ ladoMaximo: 2560, maxBytes: 1_500_000 }), em: Date.now() }),
+      'tela.enviar': ({ dataUrl }) => difundirLeitura(dataUrl, 'recorte'),
+      'tela.auto': ({ ligado }) => {
+        leituraAuto.definir(ligado);
+        difundir();
+      },
       'arquivo.salvarMarkdown': async ({ nome, conteudo }) => {
         const pasta = join(app.getPath('documents'), 'Ponto');
         await mkdir(pasta, { recursive: true });

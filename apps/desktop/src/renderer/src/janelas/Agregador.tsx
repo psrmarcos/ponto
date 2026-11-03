@@ -35,6 +35,7 @@ import { useDominio } from '../estado/dominio';
 import { api } from '../api/cliente';
 import { Logo } from '../ui/Logo';
 import { Markdown } from '../ui/Markdown';
+import { JanelaContexto } from '../ui/JanelaContexto';
 import { Menu } from '../ui/Menu';
 import { SeletorModelo } from '../ui/SeletorModelo';
 
@@ -364,6 +365,7 @@ function Caixa() {
         </Menu>
 
         <div className="espaco" />
+        <JanelaContexto />
         <button type="button" className="icone" aria-label="Ler a tela" title="Ler a tela (Ctrl+Shift+S)" onClick={() => void window.ponto.invocar('tela.ler').catch(() => {})}>
           <ScanSmiley size={17} />
         </button>

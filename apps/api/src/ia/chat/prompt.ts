@@ -30,6 +30,19 @@ const REGRAS = [
   'Responda no idioma da conversa (padrão: português do Brasil). Não invente fatos sobre a pessoa que não estejam no perfil.',
 ].join('\n');
 
+export const PREFIXO_RESUMO_CONVERSA = 'Resumo do que já conversamos neste chat:';
+
+/** Partes fixas do system, para a janela de contexto medir sem montar a chamada. */
+export function textoDasInstrucoes(agente: Pick<Agente, 'prompt'>): string {
+  return `${agente.prompt}\n\n${REGRAS}`;
+}
+
+export const PROMPT_COMPRIMIR = [
+  'Resuma esta conversa entre um usuário e o assistente que o ajuda numa call ao vivo.',
+  'Guarde só o que vai ser útil para as próximas respostas: o assunto, fatos e números citados, decisões, o que o usuário pediu e o que já foi respondido.',
+  'Escreva em tópicos curtos, no idioma da conversa, com no máximo 180 palavras. Não invente nada.',
+].join('\n');
+
 export interface TrocaAnterior {
   /** Exatamente o que foi enviado (com as falas da call daquela vez): o histórico é só acrescido, e o cache do provedor aproveita. */
   pergunta: string;
@@ -54,6 +67,8 @@ export function montarMensagens(args: {
   transcricao?: string | null;
   /** Resumo do começo da call (o que já saiu das falas enviadas). */
   resumoCall?: string | null;
+  /** Resumo das trocas antigas desta conversa, quando ela foi comprimida. */
+  resumoConversa?: string | null;
 }): MensagemIa[] {
   const perfil = [
     args.config.nomeUsuario && `Nome do usuário: ${args.config.nomeUsuario}.`,
@@ -63,9 +78,10 @@ export function montarMensagens(args: {
     .join('\n');
 
   const sistema: ParteMensagem[] = [{ tipo: 'texto', texto: `${args.agente.prompt}\n\n${REGRAS}`, cache: !perfil }];
-  if (perfil) sistema.push({ tipo: 'texto', texto: perfil, cache: !args.resumoCall });
+  if (perfil) sistema.push({ tipo: 'texto', texto: perfil, cache: !args.resumoCall && !args.resumoConversa });
   // Muda raramente (só quando o começo da call é resumido de novo), então fica no prefixo fixo.
-  if (args.resumoCall) sistema.push({ tipo: 'texto', texto: `Resumo do começo da call:\n${args.resumoCall}`, cache: true });
+  if (args.resumoCall) sistema.push({ tipo: 'texto', texto: `Resumo do começo da call:\n${args.resumoCall}`, cache: !args.resumoConversa });
+  if (args.resumoConversa) sistema.push({ tipo: 'texto', texto: `${PREFIXO_RESUMO_CONVERSA}\n${args.resumoConversa}`, cache: true });
 
   const mensagens: MensagemIa[] = [{ papel: 'system', conteudo: sistema }];
 

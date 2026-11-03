@@ -1,5 +1,5 @@
-import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
-import { PedidoChat, type RespostaPedidoChat } from '@ponto/shared';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import { PedidoChat, type ContextoConversa, type RespostaPedidoChat } from '@ponto/shared';
 import { ZodPipe } from '../../comum/zod.pipe';
 import { ChatService } from './chat.service';
 
@@ -12,6 +12,18 @@ export class ChatController {
   @HttpCode(202)
   enviar(@Body(new ZodPipe(PedidoChat)) pedido: PedidoChat): Promise<RespostaPedidoChat> {
     return this.chat.enviar(pedido);
+  }
+
+  /** Janela de contexto: o que vai em cada chamada desta conversa. */
+  @Get('conversas/:id/contexto')
+  contexto(@Param('id') id: string, @Query('agente') agente?: string): Promise<ContextoConversa> {
+    return this.chat.contexto(id, agente || undefined);
+  }
+
+  /** Troca as trocas antigas por um resumo curto (gasta uma chamada do modelo rápido). */
+  @Post('conversas/:id/comprimir')
+  comprimir(@Param('id') id: string, @Query('sessao') sessao?: string): Promise<ContextoConversa> {
+    return this.chat.comprimir(id, sessao || null);
   }
 
   @Post('conversas/:id/cancelar')
