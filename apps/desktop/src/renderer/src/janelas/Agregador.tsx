@@ -33,6 +33,7 @@ import { useDominio } from '../estado/dominio';
 import { Logo } from '../ui/Logo';
 import { Markdown } from '../ui/Markdown';
 import { Menu } from '../ui/Menu';
+import { SeletorModelo } from '../ui/SeletorModelo';
 
 const abrir = (id: 'home' | 'transcricao' | 'tela', visivel?: boolean) =>
   void window.ponto.invocar('janela.alternar', { id, visivel });
@@ -252,6 +253,7 @@ function Caixa() {
       </div>
       <div className="barra">
         <SeletorAgente />
+        <SeletorModelo />
         <button type="button" className="chip" aria-pressed={web} title="Pesquisa na web" onClick={alternarWeb}>
           <Globe size={14} /> Web
         </button>

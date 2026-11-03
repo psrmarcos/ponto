@@ -192,6 +192,21 @@
 
   /* ---------- Seletor de agentes ---------- */
   .menu.agentes { width: 290px; }
+
+  /* ---------- Seletor de modelo ---------- */
+  .chip-texto { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu.modelos { width: 330px; }
+  .busca-modelo {
+    display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 4px;
+    border-radius: 9px; background: rgba(255,255,255,0.05); border: 1px solid var(--borda); color: var(--texto-3);
+  }
+  .busca-modelo:focus-within { border-color: rgba(91,149,255,0.6); }
+  .busca-modelo input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--texto); font: inherit; font-size: 13px; }
+  .lista-modelos { max-height: 280px; overflow-y: auto; }
+  .lista-modelos .nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lista-modelos .meta { flex-wrap: wrap; }
+  .id-modelo { font-family: ui-monospace, Consolas, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
+  .vazio-menu { margin: 0; padding: 10px; font-size: 12.5px; color: var(--texto-3); }
   .agente { align-items: flex-start; padding: 9px 10px; margin-bottom: 2px; }
   .agente .nome { display: block; }
   .agente .nome { font-weight: 600; }
