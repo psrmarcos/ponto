@@ -2,10 +2,12 @@ import {
   ESTADO_CAPTURA_INICIAL,
   type CanalAudio,
   type ComandoCaptura,
+  type Configuracoes,
   type EstadoCaptura,
   type Sessao,
 } from '@ponto/shared';
 import { api } from '../api/cliente';
+import { StreamCanal } from './aoVivo';
 import { DetectorFala, MS_QUADRO, type TrechoFala } from './vad';
 import { paraWav } from './wav';
 
@@ -37,6 +39,8 @@ interface Canal {
   quadros: number;
   /** Onde este canal começou, em ms da sessão. */
   baseMs: number;
+  /** Streaming (Deepgram). Enquanto estiver de pé, as falas não vão em lote. */
+  aoVivo: StreamCanal | null;
 }
 
 class MotorCaptura {
@@ -49,6 +53,19 @@ class MotorCaptura {
   private fila: Promise<void> = Promise.resolve();
   /** Quadros (índice de 20 ms da sessão) em que o áudio do sistema estava com fala. */
   private falaSistema = new Set<number>();
+  private streaming: { ws: string; token: string } | null = null;
+
+  /** Deepgram com streaming ligado: abre um stream por canal; senão, tudo em lote. */
+  private async querStreaming(): Promise<{ ws: string; token: string } | null> {
+    try {
+      const config = await api.get<Configuracoes>('/configuracoes');
+      if (config.provedorStt !== 'deepgram' || !config.sttStreaming) return null;
+      const c = await window.ponto.invocar('api.conexao');
+      return c ? { ws: c.ws, token: c.token } : null;
+    } catch {
+      return null;
+    }
+  }
 
   comandar(c: ComandoCaptura): void {
     this.fila = this.fila.then(() => this.executar(c)).catch((e: unknown) => {
@@ -70,6 +87,7 @@ class MotorCaptura {
 
     const sessao = await api.post<Sessao>('/sessoes', {});
     this.sessao = sessao;
+    this.streaming = await this.querStreaming();
     // Pedimos 16 kHz direto: o Chromium reamostra com filtro de qualidade, melhor que fazer na mão.
     // Se a placa não aceitar, o coletor reamostra a partir da taxa nativa.
     const ctx = criarContexto();
@@ -125,7 +143,8 @@ class MotorCaptura {
     const fonte = ctx.createMediaStreamSource(stream);
     const no = new AudioWorkletNode(ctx, 'ponto-coletor', { numberOfInputs: 1, numberOfOutputs: 0 });
     const baseMs = this.sessao ? Math.max(0, Date.now() - this.sessao.iniciadaEm) : 0;
-    const canal: Canal = { id, stream, fonte, no, detector: new DetectorFala(), quadros: 0, baseMs };
+    const aoVivo = this.streaming && this.sessao ? new StreamCanal(this.streaming.ws, this.streaming.token, this.sessao.id, id) : null;
+    const canal: Canal = { id, stream, fonte, no, detector: new DetectorFala(), quadros: 0, baseMs, aoVivo };
     no.port.onmessage = (m: MessageEvent<Float32Array>) => this.receberQuadro(canal, m.data);
     fonte.connect(no);
     // Fone desconectado, permissão revogada etc.
@@ -142,6 +161,12 @@ class MotorCaptura {
     if (this.estado.status !== 'gravando') return;
     const trecho = canal.detector.processar(quadro, tMs);
     if (canal.id === 'sistema' && canal.detector.emFala) this.marcarFalaSistema(tMs);
+    if (canal.aoVivo && !canal.aoVivo.falhou) {
+      // Sem fone, o microfone ouve o outro: não abre fala sua enquanto o computador está falando.
+      const podeComecar = canal.id === 'sistema' || !this.falaSistema.has(Math.floor(tMs / MS_QUADRO));
+      canal.aoVivo.processar(quadro, tMs, canal.detector.emFala, podeComecar);
+      return;
+    }
     if (trecho) this.enviar(canal.id, trecho);
   }
 
@@ -179,7 +204,7 @@ class MotorCaptura {
   private descarregar(): void {
     for (const c of this.canais) {
       const t = c.detector.descarregar(c.baseMs + c.quadros * MS_QUADRO);
-      if (t) this.enviar(c.id, t);
+      if (t && !(c.aoVivo && !c.aoVivo.falhou)) this.enviar(c.id, t);
     }
   }
 
@@ -210,6 +235,7 @@ class MotorCaptura {
     this.timerNiveis = null;
     window.ponto.enviar('captura.niveis', { microfone: 0, sistema: 0 });
     for (const c of this.canais) {
+      c.aoVivo?.fechar();
       c.no.port.onmessage = null;
       c.fonte.disconnect();
       c.stream.getTracks().forEach((t) => t.stop());

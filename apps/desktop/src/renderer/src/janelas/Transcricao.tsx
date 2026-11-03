@@ -99,14 +99,18 @@ function ListaFalas({ falas, gravando, parada }: { falas: Fala[]; gravando: bool
   const nome = useDominio((s) => s.configuracoes?.nomeUsuario);
   const corpo = useRef<HTMLDivElement>(null);
   const [colado, setColado] = useState(true);
+  const parciais = useTranscricao((s) => s.parciais);
+  const emAndamento = (Object.entries(parciais) as Array<[Fala['canal'], { texto: string; inicioMs: number }]>).sort(
+    (a, b) => a[1].inicioMs - b[1].inicioMs,
+  );
 
   // Acompanha o fim da conversa, a não ser que a pessoa tenha rolado para ler algo antes.
   useLayoutEffect(() => {
     const el = corpo.current;
     if (el && colado) el.scrollTop = el.scrollHeight;
-  }, [falas, colado]);
+  }, [falas, parciais, colado]);
 
-  if (!falas.length) {
+  if (!falas.length && !emAndamento.length) {
     return (
       <div className="corpo">
         <div className="vazio">
@@ -146,6 +150,14 @@ function ListaFalas({ falas, gravando, parada }: { falas: Fala[]; gravando: bool
               {quem(g[0]!, nome)} <span className="hora">{relogio(g[0]!.inicioMs)}</span>
             </span>
             <span className="txt">{g.map((f) => f.texto).join(' ')}</span>
+          </div>
+        ))}
+        {emAndamento.map(([canal, p]) => (
+          <div key={`parcial-${canal}`} className={`fala parcial${canal === 'microfone' ? ' voce' : ''}`} aria-live="polite">
+            <span className="quem">
+              {canal === 'microfone' ? nome || 'Você' : 'Participante'} <span className="hora">{relogio(p.inicioMs)}</span>
+            </span>
+            <span className="txt">{p.texto}</span>
           </div>
         ))}
       </div>

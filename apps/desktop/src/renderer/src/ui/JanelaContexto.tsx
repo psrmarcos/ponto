@@ -62,6 +62,8 @@ export function JanelaContexto() {
   return (
     <Menu
       className="contexto"
+      alinhar="direita"
+      abrirPara="cima"
       botao={({ aberto, alternar }) => (
         <button
           type="button"

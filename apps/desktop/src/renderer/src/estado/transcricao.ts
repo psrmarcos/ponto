@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Fala, NiveisAudio } from '@ponto/shared';
+import type { CanalAudio, Fala, NiveisAudio } from '@ponto/shared';
 import { api } from '../api/cliente';
 import { useEstadoApp } from './app';
 
@@ -12,6 +12,8 @@ interface Transcricao {
   falas: Fala[];
   aviso: string | null;
   niveis: NiveisAudio;
+  /** Fala em andamento por canal (streaming): texto provisório que ainda pode mudar. */
+  parciais: Partial<Record<CanalAudio, { texto: string; inicioMs: number }>>;
   /** Limpeza pedida e ainda desfazível: as falas só somem do banco quando o prazo acaba. */
   desfazivel: { falas: Fala[]; ateMs: number } | null;
   limpar: () => void;
@@ -27,6 +29,7 @@ export const useTranscricao = create<Transcricao>((set, get) => ({
   falas: [],
   aviso: null,
   niveis: { microfone: 0, sistema: 0 },
+  parciais: {},
   desfazivel: null,
   limpar: () => {
     const { sessaoId, falas, desfazivel } = get();
@@ -90,7 +93,7 @@ export function iniciarTranscricao(): void {
     const id = s.estado?.captura.sessaoId ?? null;
     if (id && id !== useTranscricao.getState().sessaoId) {
       if (useTranscricao.getState().desfazivel) confirmarLimpeza();
-      useTranscricao.setState({ sessaoId: id, falas: [], aviso: null });
+      useTranscricao.setState({ sessaoId: id, falas: [], parciais: {}, aviso: null });
       carregar(id);
     }
     const erro = s.estado?.captura.erro;
@@ -104,6 +107,14 @@ export function iniciarTranscricao(): void {
   api.ouvir((e) => {
     if (e.tipo === 'transcricao.fala' && e.fala.sessaoId === useTranscricao.getState().sessaoId) {
       useTranscricao.setState((s) => ({ falas: inserir(s.falas, e.fala) }));
+    }
+    if (e.tipo === 'transcricao.parcial' && e.sessaoId === useTranscricao.getState().sessaoId) {
+      useTranscricao.setState((s) => {
+        const parciais = { ...s.parciais };
+        if (e.texto) parciais[e.canal] = { texto: e.texto, inicioMs: e.inicioMs };
+        else delete parciais[e.canal];
+        return { parciais };
+      });
     }
     if (e.tipo === 'transcricao.limpa' && e.sessaoId === useTranscricao.getState().sessaoId) {
       useTranscricao.setState((s) => ({ falas: s.falas.filter((f) => f.inicioMs > e.ateMs) }));

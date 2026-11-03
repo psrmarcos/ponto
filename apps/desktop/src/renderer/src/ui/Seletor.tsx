@@ -24,7 +24,9 @@ export function Seletor<T extends string>({
   const atual = opcoes.find((o) => o.valor === valor);
   return (
     <Menu
-      className={`seletor${abrirPara === 'cima' ? ' acima' : ''}${alinhar === 'direita' ? ' direita' : ''}`}
+      className="seletor"
+      abrirPara={abrirPara}
+      alinhar={alinhar}
       botao={({ aberto, alternar }) => (
         <button type="button" className="botao-seletor" aria-label={rotulo} aria-haspopup="listbox" aria-expanded={aberto} onClick={alternar}>
           <span>{atual?.rotulo ?? valor}</span>

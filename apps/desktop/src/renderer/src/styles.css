@@ -36,7 +36,7 @@
     user-select: none;
     overflow: hidden;
   }
-  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: default; }
   svg { display: block; }
 
   /* Tudo que e "solido" recebe o mouse. O resto da janela e transparente e deixa o clique passar. */
@@ -60,7 +60,7 @@
     -webkit-app-region: drag;
     width: 22px; height: 30px;
     display: flex; align-items: center; justify-content: center;
-    color: var(--texto-3); cursor: grab;
+    color: var(--texto-3);
     border-radius: 999px;
   }
   .alca:hover { color: var(--texto-2); }
@@ -270,7 +270,7 @@
     padding: 8px 8px 8px 6px;
     border-bottom: 1px solid var(--borda);
   }
-  .cabecalho .arrastar { -webkit-app-region: drag; flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; height: 30px; cursor: grab; }
+  .cabecalho .arrastar { -webkit-app-region: drag; flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; height: 30px; }
   .cabecalho .titulo { font-weight: 600; font-size: 13.5px; }
   .cabecalho .meta { font-size: 12px; color: var(--texto-3); font-variant-numeric: tabular-nums; }
   .ao-vivo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-2); }
@@ -445,7 +445,7 @@
 /* ---------- Sessões (Home) ---------- */
 .sessao-item { border-top: 1px solid var(--borda); }
 .sessao-item:first-child { border-top: 0; }
-.sessao-cabeca { width: 100%; text-align: left; border-top: 0; background: transparent; color: inherit; cursor: pointer; }
+.sessao-cabeca { width: 100%; text-align: left; border-top: 0; background: transparent; color: inherit; }
 .sessao-cabeca:hover { background: rgba(255,255,255,0.03); }
 .sessao-cabeca .seta { color: var(--texto-3); transition: transform 0.15s; flex: none; }
 .sessao-item.aberta .seta { transform: rotate(90deg); }
@@ -459,7 +459,7 @@
 .btn-sec.perigo { background: rgba(255,90,90,0.16); color: #ff9a9a; }
 .btn-sec.perigo:hover { background: rgba(255,90,90,0.26); color: #ffc0c0; }
 .sessao-aviso { font-size: 12.5px; color: var(--texto-2); display: flex; align-items: center; gap: 10px; }
-.sessao-aviso .link { display: inline-flex; align-items: center; gap: 4px; background: none; color: var(--azul, #5b95ff); font-size: 12.5px; padding: 0; cursor: pointer; }
+.sessao-aviso .link { display: inline-flex; align-items: center; gap: 4px; background: none; color: var(--azul, #5b95ff); font-size: 12.5px; padding: 0; }
 .sessao-ata { font-size: 13.5px; line-height: 1.55; color: var(--texto); max-width: 720px; }
 .sessao-ata p { margin: 0 0 8px; }
 .sessao-ata .t2 { color: var(--texto-3); }
@@ -467,7 +467,7 @@
 .md-h1 { font-size: 16px; font-weight: 650; margin: 2px 0 8px; }
 .md-h2 { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--texto-3); margin: 14px 0 6px; }
 li.md-tarefa { list-style: none; margin-left: -18px; }
-.link-aviso { background: none; padding: 0; color: var(--azul); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.link-aviso { background: none; padding: 0; color: var(--azul); font: inherit; font-weight: 600; text-decoration: underline; }
 
 /* ---------- Dicas e seletor desenhados na página (os nativos vazam na gravação) ---------- */
 .dica-flutuante {
@@ -506,9 +506,9 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .rc-fn { color: #82AAFF; }
 .rc-tipo { color: #7FDBCA; }
 .miniaturas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-.msg .miniatura { padding: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--borda-forte); background: rgba(0,0,0,0.3); cursor: zoom-in; display: block; }
+.msg .miniatura { padding: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--borda-forte); background: rgba(0,0,0,0.3); display: block; }
 .msg .miniatura img { display: block; height: 64px; width: auto; max-width: 160px; object-fit: cover; }
-.msg .miniatura.grande { cursor: zoom-out; }
+.msg .miniatura.grande { }
 .msg .miniatura.grande img { height: auto; max-height: 300px; max-width: 100%; object-fit: contain; }
 .msg.eu:has(.miniatura.grande) { max-width: 100%; }
 
@@ -563,7 +563,7 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .rodape-tela { flex-wrap: wrap; row-gap: 6px; }
 .rotulo-auto { font-size: 12px; color: var(--texto-2); cursor: default; }
 .recortador { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.area-recorte { position: relative; cursor: crosshair; touch-action: none; border-radius: 8px; overflow: hidden; border: 1px solid var(--borda-forte); }
+.area-recorte { position: relative; touch-action: none; border-radius: 8px; overflow: hidden; border: 1px solid var(--borda-forte); }
 .area-recorte img { width: 100%; display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .area-recorte .selecao { position: absolute; border: 2px solid #5B95FF; background: rgba(91, 149, 255, 0.18); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); pointer-events: none; }
 
@@ -593,3 +593,4 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .barra-janela .botao-janela.fechar:hover { background: #C42B1C; color: #fff; }
 .janela-home { padding: 0; display: flex; }
 .janela-home > .painel { border-radius: 0; border: 0; }
+.fala.parcial .txt { opacity: 0.72; font-style: italic; }

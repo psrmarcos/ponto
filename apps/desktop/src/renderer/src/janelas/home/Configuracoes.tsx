@@ -116,6 +116,18 @@ export function Configuracoes() {
             aoMudar={(p) => void salvar({ provedorStt: p, modeloStt: INFO_PROVEDORES_STT[p].modeloPadrao })}
           />
         </div>
+        {config.provedorStt === 'deepgram' && (
+          <div className="ajuste">
+            <div className="principal">
+              <div className="t1">Texto enquanto a pessoa fala</div>
+              <div className="t2">
+                Streaming: o balão aparece e cresce em tempo real. Só manda o áudio quando há fala. Cerca de US$ 0,46 por hora de fala por
+                canal. Desligado, cada fala chega uns 2 s depois de terminar.
+              </div>
+            </div>
+            <Chave ligada={config.sttStreaming} rotulo="Texto enquanto a pessoa fala" aoMudar={(v) => void salvar({ sttStreaming: v })} />
+          </div>
+        )}
         <div className="ajuste">
           <div className="principal">
             <div className="t1">Modelo de transcrição</div>

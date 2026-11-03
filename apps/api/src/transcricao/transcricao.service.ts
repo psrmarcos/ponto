@@ -8,6 +8,7 @@ import { ehAlucinacao } from './alucinacoes';
 import { DeepgramStt } from './stt/deepgram-stt';
 import { OpenRouterStt } from './stt/openrouter-stt';
 import { ErroStt, type ProvedorStt } from './stt/provedor-stt';
+import { StreamingService } from './streaming/streaming.service';
 
 /** Bytes por segundo de WAV 16 kHz, 16 bits, mono. */
 const BYTES_POR_SEGUNDO = 32_000;
@@ -45,6 +46,7 @@ export class TranscricaoService {
     private readonly uso: UsoService,
     openrouter: OpenRouterStt,
     deepgram: DeepgramStt,
+    private readonly streaming: StreamingService,
   ) {
     this.provedores = { openrouter, deepgram };
   }
@@ -66,8 +68,10 @@ export class TranscricaoService {
    */
   async aguardarPendentes(sessaoId: string, maxMs: number): Promise<void> {
     const daSessao = this.pendentes.get(sessaoId);
-    if (!daSessao?.size) return;
-    await Promise.race([Promise.allSettled([...daSessao]), new Promise((ok) => setTimeout(ok, maxMs))]);
+    const lote = daSessao?.size
+      ? Promise.race([Promise.allSettled([...daSessao]), new Promise((ok) => setTimeout(ok, maxMs))])
+      : Promise.resolve();
+    await Promise.all([lote, this.streaming.aguardar(sessaoId, maxMs)]);
   }
 
   private puxar(): void {

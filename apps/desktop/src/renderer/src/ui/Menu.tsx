@@ -1,22 +1,29 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 interface Props {
   botao: (abrir: { aberto: boolean; alternar: () => void }) => ReactNode;
   children: (fechar: () => void) => ReactNode;
   className?: string;
+  /** Lado preferido. Se não couber, abre para o outro. */
+  abrirPara?: 'baixo' | 'cima';
+  /** Borda do botão em que o menu se alinha. */
+  alinhar?: 'esquerda' | 'direita';
 }
 
 const MARGEM = 8;
+const FOLGA = 4;
 
 /**
- * Menu ancorado no botão. Fecha ao clicar fora ou com Esc.
- * Abre para baixo ou para cima, para o lado que tiver mais espaço dentro da
- * janela, desliza na horizontal para não passar da borda, e ganha rolagem se
- * mesmo assim não couber (a janela corta o que passa).
+ * Menu ancorado no botão. Fecha ao clicar fora, com Esc ou quando a página rola.
+ *
+ * Fica em `position: fixed`, calculado a partir do botão: assim nenhum painel
+ * com rolagem ou `overflow: hidden` corta o menu. Abre para o lado que tiver
+ * espaço, desliza na horizontal para não passar da borda da janela e ganha
+ * rolagem se mesmo assim não couber (a janela do SO corta o que passa dela).
  */
-export function Menu({ botao, children, className = '' }: Props) {
+export function Menu({ botao, children, className = '', abrirPara = 'baixo', alinhar = 'esquerda' }: Props) {
   const [aberto, setAberto] = useState(false);
-  const [posicao, setPosicao] = useState<{ acima: boolean; max: number; dx: number; largura?: number } | null>(null);
+  const [estilo, setEstilo] = useState<CSSProperties | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
@@ -26,53 +33,61 @@ export function Menu({ botao, children, className = '' }: Props) {
       if (!ref.current?.contains(e.target as Node)) setAberto(false);
     };
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setAberto(false);
+    // Rolou a página por baixo: o botão saiu do lugar, então fecha (rolar dentro do menu não conta).
+    const rolou = (e: Event) => {
+      if (!menu.current?.contains(e.target as Node)) setAberto(false);
+    };
+    const redimensionou = () => setAberto(false);
     document.addEventListener('mousedown', fora);
     document.addEventListener('keydown', esc);
+    document.addEventListener('scroll', rolou, true);
+    window.addEventListener('resize', redimensionou);
     return () => {
       document.removeEventListener('mousedown', fora);
       document.removeEventListener('keydown', esc);
+      document.removeEventListener('scroll', rolou, true);
+      window.removeEventListener('resize', redimensionou);
     };
   }, [aberto]);
 
-  // Mede antes de pintar: sem piscar no lado errado.
+  // Mede antes de pintar: sem piscar no lugar errado.
   useLayoutEffect(() => {
     if (!aberto || !ref.current || !menu.current) {
-      setPosicao(null);
+      setEstilo(null);
       return;
     }
-    const ancora = ref.current.getBoundingClientRect();
+    const b = ref.current.getBoundingClientRect();
     const altura = menu.current.scrollHeight;
-    const abaixo = window.innerHeight - ancora.bottom - MARGEM;
-    const acimaEspaco = ancora.top - MARGEM;
-    const acima = altura > abaixo && acimaEspaco > abaixo;
-    // Na horizontal: se passar da borda direita, desliza para a esquerda; se a
-    // janela for mais estreita que o menu, o menu encolhe para caber.
-    const livre = window.innerWidth - 2 * MARGEM;
-    const largura = Math.min(menu.current.offsetWidth, livre);
-    const direita = window.innerWidth - MARGEM;
-    let dx = 0;
-    if (ancora.left + largura > direita) dx = direita - largura - ancora.left;
-    if (ancora.left + dx < MARGEM) dx = MARGEM - ancora.left;
-    setPosicao({
-      acima,
-      max: Math.max(120, Math.floor(acima ? acimaEspaco : abaixo) - 6),
-      dx,
-      largura: largura < menu.current.offsetWidth ? largura : undefined,
+    const larguraNatural = menu.current.offsetWidth;
+    const abaixo = window.innerHeight - b.bottom - MARGEM - FOLGA;
+    const acimaEspaco = b.top - MARGEM - FOLGA;
+    const acima =
+      abrirPara === 'cima' ? altura <= acimaEspaco || acimaEspaco > abaixo : altura > abaixo && acimaEspaco > abaixo;
+    const max = Math.max(120, Math.floor(acima ? acimaEspaco : abaixo));
+    const h = Math.min(altura, max);
+    const largura = Math.min(larguraNatural, window.innerWidth - 2 * MARGEM);
+    let left = alinhar === 'direita' ? b.right - largura : b.left;
+    left = Math.max(MARGEM, Math.min(left, window.innerWidth - MARGEM - largura));
+    setEstilo({
+      position: 'fixed',
+      left: Math.round(left),
+      top: Math.round(acima ? b.top - FOLGA - h : b.bottom + FOLGA),
+      right: 'auto',
+      bottom: 'auto',
+      maxHeight: max,
+      overflowY: 'auto',
+      width: largura < larguraNatural ? largura : undefined,
     });
-  }, [aberto]);
+  }, [aberto, abrirPara, alinhar]);
 
   return (
     <div className="ancora" ref={ref}>
       {botao({ aberto, alternar: () => setAberto((v) => !v) })}
       <div
         ref={menu}
-        className={`menu ${className}${aberto ? ' aberto' : ''}${posicao?.acima ? ' para-cima' : ''}`}
+        className={`menu ${className}${aberto ? ' aberto' : ''}`}
         role="menu"
-        style={
-          posicao
-            ? { maxHeight: posicao.max, overflowY: 'auto', left: posicao.dx, width: posicao.largura }
-            : { visibility: aberto ? 'hidden' : undefined }
-        }
+        style={estilo ?? (aberto ? { visibility: 'hidden' } : undefined)}
       >
         {children(() => setAberto(false))}
       </div>

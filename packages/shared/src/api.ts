@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Fala, IdProvedorStt, INFO_PROVEDORES_STT } from './transcricao';
+import { CanalAudio, Fala, IdProvedorStt, INFO_PROVEDORES_STT } from './transcricao';
 
 /** Cabeçalho que autentica cada chamada à API local (token aleatório gerado pelo main a cada execução). */
 export const CABECALHO_TOKEN = 'x-ponto-token';
@@ -56,11 +56,15 @@ export const Configuracoes = z.object({
   /** Insights na aba Insights da Transcrição (só os que valem a pena). */
   insightsAoVivo: z.boolean(),
   webPorPadrao: z.boolean(),
-  idioma: z.enum(['auto', 'pt-BR', 'en', 'es']),
+  idioma: z.enum([
+    'auto', 'pt-BR', 'pt-PT', 'en', 'es', 'fr', 'de', 'it', 'nl', 'ja', 'ko', 'zh', 'ru', 'hi', 'tr', 'pl', 'sv', 'da', 'no', 'fi', 'uk', 'id', 'vi',
+  ]),
   /** Quem transcreve o áudio. */
   provedorStt: IdProvedorStt,
   /** Modelo de transcrição no provedor escolhido. */
   modeloStt: z.string().min(1),
+  /** Deepgram: transcreve em streaming (o texto aparece enquanto a pessoa fala). */
+  sttStreaming: z.boolean(),
   /** Teto de gasto por sessão em US$. 0 = sem teto. */
   tetoSessaoUsd: z.number().min(0).max(100),
   agenteAtivo: z.string(),
@@ -83,6 +87,7 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   idioma: 'pt-BR',
   provedorStt: 'openrouter',
   modeloStt: INFO_PROVEDORES_STT.openrouter.modeloPadrao,
+  sttStreaming: true,
   tetoSessaoUsd: 1,
   agenteAtivo: 'geral',
 };
@@ -226,6 +231,14 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('configuracoes'), configuracoes: Configuracoes }),
   z.object({ tipo: z.literal('uso'), resumo: ResumoUso }),
   z.object({ tipo: z.literal('transcricao.fala'), fala: Fala }),
+  /** Texto provisório da fala em andamento (streaming). Texto vazio: a fala terminou ou foi descartada. */
+  z.object({
+    tipo: z.literal('transcricao.parcial'),
+    sessaoId: z.string(),
+    canal: CanalAudio,
+    texto: z.string(),
+    inicioMs: z.number(),
+  }),
   /** Falas apagadas (até `ateMs`, inclusive). */
   z.object({ tipo: z.literal('transcricao.limpa'), sessaoId: z.string(), ateMs: z.number() }),
   /** O app detectou uma pergunta para o usuário e já começou a responder (chat.* com este respostaId). */
