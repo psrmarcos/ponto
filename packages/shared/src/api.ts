@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Fala, IdProvedorStt, INFO_PROVEDORES_STT } from './transcricao';
 
 /** Cabeçalho que autentica cada chamada à API local (token aleatório gerado pelo main a cada execução). */
 export const CABECALHO_TOKEN = 'x-ponto-token';
@@ -50,6 +51,10 @@ export const Configuracoes = z.object({
   sugestoesAutomaticas: z.boolean(),
   webPorPadrao: z.boolean(),
   idioma: z.enum(['auto', 'pt-BR', 'en', 'es']),
+  /** Quem transcreve o áudio. */
+  provedorStt: IdProvedorStt,
+  /** Modelo de transcrição no provedor escolhido. */
+  modeloStt: z.string().min(1),
   /** Teto de gasto por sessão em US$. 0 = sem teto. */
   tetoSessaoUsd: z.number().min(0).max(100),
   agenteAtivo: z.string(),
@@ -65,6 +70,8 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   sugestoesAutomaticas: true,
   webPorPadrao: false,
   idioma: 'auto',
+  provedorStt: 'openrouter',
+  modeloStt: INFO_PROVEDORES_STT.openrouter.modeloPadrao,
   tetoSessaoUsd: 1,
   agenteAtivo: 'geral',
 };
@@ -97,6 +104,8 @@ export const PedidoChat = z.object({
   web: z.boolean(),
   raciocinio: z.boolean(),
   imagens: z.array(z.string().startsWith('data:image/')).max(4),
+  /** Sessão de transcrição em andamento: o trecho recente da conversa entra como contexto. */
+  sessaoId: z.string().max(64).nullable().optional(),
 });
 export type PedidoChat = z.infer<typeof PedidoChat>;
 
@@ -129,6 +138,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('chat.erro'), respostaId: z.string(), mensagem: z.string() }),
   z.object({ tipo: z.literal('configuracoes'), configuracoes: Configuracoes }),
   z.object({ tipo: z.literal('uso'), resumo: ResumoUso }),
+  z.object({ tipo: z.literal('transcricao.fala'), fala: Fala }),
+  z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),
 ]);
 export type EventoWs = z.infer<typeof EventoWs>;
 

@@ -17,6 +17,7 @@ import {
   MagicWand,
   Monitor,
   NotePencil,
+  Pause,
   Play,
   Power,
   Robot,
@@ -27,13 +28,16 @@ import {
   Waveform,
   X,
 } from '@phosphor-icons/react';
-import { useEstadoApp, useJanelaVisivel, useStealth } from '../estado/app';
+import { useCaptura, useEstadoApp, useJanelaVisivel, useStealth } from '../estado/app';
 import { useChat, type Mensagem } from '../estado/chat';
 import { useDominio } from '../estado/dominio';
 import { Logo } from '../ui/Logo';
 import { Markdown } from '../ui/Markdown';
 import { Menu } from '../ui/Menu';
 import { SeletorModelo } from '../ui/SeletorModelo';
+
+const rotuloStatus = (s: string) =>
+  s === 'gravando' ? 'Transcrevendo' : s === 'pausada' ? 'Transcrição pausada' : s === 'iniciando' ? 'Abrindo o áudio…' : 'Sem transcrição';
 
 const abrir = (id: 'home' | 'transcricao' | 'tela', visivel?: boolean) =>
   void window.ponto.invocar('janela.alternar', { id, visivel });
@@ -55,8 +59,8 @@ function Pilula({ chatVisivel, alternarChat }: { chatVisivel: boolean; alternarC
   const home = useJanelaVisivel('home');
   const transcricao = useJanelaVisivel('transcricao');
   const tela = useJanelaVisivel('tela');
-  // A captura de áudio entra no M1; por enquanto o botão só alterna o estado visual.
-  const [pausado, setPausado] = useState(false);
+  const { status } = useCaptura();
+  const gravando = status === 'gravando';
 
   return (
     <div className="pilula solido">
@@ -67,19 +71,24 @@ function Pilula({ chatVisivel, alternarChat }: { chatVisivel: boolean; alternarC
       <button type="button" className="btn-redondo" aria-pressed={home} title="Home e configurações" onClick={() => abrir('home')}>
         <House size={15} weight="bold" />
       </button>
-      <span className={`ponto${pausado ? ' pausado' : ''}`} aria-hidden="true" />
+      <span className={`ponto${gravando ? '' : ' pausado'}`} aria-hidden="true" title={rotuloStatus(status)} />
       <button type="button" className="btn-pilula" aria-pressed={chatVisivel} title="Mostrar/esconder chat" onClick={alternarChat}>
         {chatVisivel ? <CaretUp size={14} weight="bold" /> : <CaretDown size={14} weight="bold" />}
         <span>{chatVisivel ? 'Esconder' : 'Mostrar'}</span>
       </button>
       <button
         type="button"
-        className={`btn-redondo ${pausado ? 'pausado' : 'gravando'}`}
-        aria-label={pausado ? 'Iniciar' : 'Pausar'}
-        title="Pausar / iniciar (a captura de áudio chega no próximo passo)"
-        onClick={() => setPausado((v) => !v)}
+        className={`btn-redondo ${gravando ? 'gravando' : 'pausado'}`}
+        aria-label={gravando ? 'Pausar transcrição' : status === 'pausada' ? 'Retomar transcrição' : 'Começar a transcrever'}
+        title={`${gravando ? 'Pausar' : status === 'pausada' ? 'Retomar' : 'Começar a transcrever'} (Ctrl+Shift+G)`}
+        disabled={status === 'iniciando'}
+        onClick={() =>
+          void window.ponto.invocar('captura.comandar', {
+            acao: gravando ? 'pausar' : status === 'pausada' ? 'retomar' : 'iniciar',
+          })
+        }
       >
-        {pausado ? <Play size={12} weight="fill" /> : <Stop size={12} weight="fill" />}
+        {gravando ? <Pause size={12} weight="fill" /> : <Play size={12} weight="fill" />}
       </button>
 
       <span className="div-pilula" aria-hidden="true" />
@@ -195,6 +204,7 @@ function Caixa() {
   const { enviar, anexos, anexar, removerAnexo, web, raciocinio, alternarWeb, alternarRaciocinio, novaConversa } = useChat();
   const [texto, setTexto] = useState('');
   const entrada = useRef<HTMLTextAreaElement>(null);
+  const captura = useCaptura();
   const stealth = useStealth();
 
   useEffect(() => {
@@ -286,6 +296,20 @@ function Caixa() {
                 <span className={`chave${stealth.ligado ? ' ligada' : ''}`} aria-hidden="true" />
               </button>
               <div className="divisor" />
+              {captura.status !== 'parada' && (
+                <button
+                  type="button"
+                  className="item"
+                  role="menuitem"
+                  onClick={() => {
+                    void window.ponto.invocar('captura.comandar', { acao: 'parar' });
+                    fechar();
+                  }}
+                >
+                  <Stop size={16} />
+                  <span className="rotulo">Encerrar transcrição</span>
+                </button>
+              )}
               <button type="button" className="item" role="menuitem" onClick={() => { novaConversa(); fechar(); }}>
                 <NotePencil size={16} />
                 <span className="rotulo">Nova conversa</span>

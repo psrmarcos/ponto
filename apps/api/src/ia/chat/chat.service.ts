@@ -4,6 +4,7 @@ import { ConfiguracoesService } from '../../configuracoes/configuracoes.service'
 import { AgentesService } from '../../agentes/agentes.service';
 import { EventosService } from '../../eventos/eventos.service';
 import { UsoService } from '../../uso/uso.service';
+import { SessoesService } from '../../sessoes/sessoes.service';
 import { ProvedoresService } from '../provedores/provedores.service';
 import { ErroProvedor } from '../provedores/provedor';
 import { montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior } from './prompt';
@@ -30,6 +31,7 @@ export class ChatService {
     private readonly provedores: ProvedoresService,
     private readonly eventos: EventosService,
     private readonly uso: UsoService,
+    private readonly sessoes: SessoesService,
   ) {}
 
   /** Começa a responder em segundo plano e devolve o id da resposta na hora. */
@@ -78,7 +80,8 @@ export class ChatService {
       const agente = await this.agentes.obter(pedido.agenteId).catch(() => this.agentes.obter('geral'));
       const modelo = agente.modelo ?? config.modeloPadrao;
       const provedor = this.provedores.obter(config.provedorPadrao);
-      const mensagens = montarMensagens({ agente, config, historico: conversa.historico, pedido });
+      const transcricao = pedido.sessaoId ? await this.sessoes.contextoRecente(pedido.sessaoId).catch(() => null) : null;
+      const mensagens = montarMensagens({ agente, config, historico: conversa.historico, pedido, transcricao });
 
       this.eventos.emitir({ tipo: 'chat.inicio', conversaId: pedido.conversaId, respostaId, modelo });
 
@@ -108,7 +111,7 @@ export class ChatService {
       if (conversa.historico.length > TROCAS_NO_HISTORICO * 2) conversa.historico.splice(0, TROCAS_NO_HISTORICO);
       if (uso) {
         conversa.gastoUsd += uso.custoUsd;
-        await this.uso.registrar({ provedor: provedor.id, origem: 'chat', uso });
+        await this.uso.registrar({ provedor: provedor.id, origem: 'chat', sessaoId: pedido.sessaoId ?? null, uso });
       }
       this.eventos.emitir({ tipo: 'chat.fim', respostaId, uso });
     } catch (e) {

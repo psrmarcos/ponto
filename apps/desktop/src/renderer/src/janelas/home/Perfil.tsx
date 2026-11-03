@@ -5,7 +5,7 @@ import { useDominio } from '../../estado/dominio';
 
 const CHAVES: Array<{ id: IdSegredo; nome: string; dica: string; placeholder: string; testavel: boolean }> = [
   { id: 'openrouter', nome: 'OpenRouter', dica: 'Usada para todos os modelos de IA por enquanto.', placeholder: 'sk-or-...', testavel: true },
-  { id: 'deepgram', nome: 'Deepgram', dica: 'Transcrição na nuvem (entra com a captura de áudio).', placeholder: 'Cole sua chave', testavel: false },
+  { id: 'deepgram', nome: 'Deepgram', dica: 'Opcional: outro serviço de transcrição (escolha em Configurações).', placeholder: 'Cole sua chave', testavel: false },
 ];
 
 export function Perfil() {

@@ -4,6 +4,7 @@ import { basename, extname } from 'node:path';
 import { IdJanela, IdSegredo, type EstadoApp } from '@ponto/shared';
 import { ApiHost } from './api-host';
 import { AtalhosService } from './atalhos';
+import { CapturaService } from './captura';
 import { emitir, registrarIpc } from './ipc';
 import { GerenciadorJanelas, marcarEncerrando } from './janelas/gerenciador';
 import { PreferenciasService } from './preferencias';
@@ -17,6 +18,7 @@ import { SegredosService } from './segredos';
 
 // Nome da pasta de dados (%APPDATA%\Ponto no Windows). Precisa vir antes de qualquer getPath.
 app.setName('Ponto');
+CapturaService.prepararAntesDoReady();
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -47,6 +49,7 @@ function iniciar(): void {
   };
 
   const janelas = new GerenciadorJanelas(prefs, difundir);
+  const captura = new CapturaService(difundir);
   segredos.aoMudar(difundir);
   const api = new ApiHost(segredos, difundir);
   const atalhos = new AtalhosService(
@@ -64,6 +67,7 @@ function iniciar(): void {
         const w = janelas.obter('tela');
         if (w) emitir(w.webContents, 'tela.ler', undefined);
       },
+      alternarCaptura: () => captura.alternar(),
       sair: () => app.quit(),
     },
     difundir,
@@ -78,13 +82,15 @@ function iniciar(): void {
       atalhos: prefs.atalhos(),
       atalhosComErro: atalhos.erros,
       api: { status: api.status },
+      captura: captura.estado,
       chavesConfiguradas: IdSegredo.options.filter((id) => segredos.status()[id].configurado),
       plataforma: process.platform as EstadoApp['plataforma'],
       versao: app.getVersion(),
     };
   }
 
-  const nossas = (wc: WebContents) => janelas.todas().some((w) => w.webContents === wc);
+  const nossas = (wc: WebContents) => wc === captura.webContents || janelas.todas().some((w) => w.webContents === wc);
+  const daCaptura = (wc: WebContents) => wc === captura.webContents;
 
   registrarIpc(
     {
@@ -115,17 +121,25 @@ function iniciar(): void {
         return { nome: basename(arquivo), dataUrl: `data:image/${ext};base64,${dados.toString('base64')}` };
       },
       'app.sair': () => app.quit(),
+      'captura.comandar': (c) => captura.comandar(c),
     },
     {
       'janela.areasSolidas': ({ areas }, e) => {
         const w = BrowserWindow.fromWebContents(e.sender);
         if (w) janelas.cliqueAtraves.definirAreas(w, areas);
       },
+      'captura.status': (s, e) => {
+        if (daCaptura(e.sender)) captura.receberStatus(s);
+      },
+      'captura.niveis': (n, e) => {
+        if (daCaptura(e.sender)) captura.repassarNiveis(n, janelas.todas());
+      },
     },
     nossas,
   );
 
   janelas.criarTodas();
+  captura.criar();
   atalhos.registrarTodos();
   void api.iniciar();
 

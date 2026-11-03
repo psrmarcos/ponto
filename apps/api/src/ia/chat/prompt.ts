@@ -32,6 +32,8 @@ export function montarMensagens(args: {
   config: Pick<Configuracoes, 'nomeUsuario' | 'contextoUsuario'>;
   historico: TrocaAnterior[];
   pedido: Pick<PedidoChat, 'texto' | 'atalho' | 'imagens'>;
+  /** Trecho recente da call, já formatado. Vai só na última mensagem (não entra no histórico). */
+  transcricao?: string | null;
 }): MensagemIa[] {
   const perfil = [
     args.config.nomeUsuario && `Nome do usuário: ${args.config.nomeUsuario}.`,
@@ -50,7 +52,10 @@ export function montarMensagens(args: {
     mensagens.push({ papel: 'assistant', conteudo: cortar(t.resposta, MAX_CHARS_RESPOSTA_ANTIGA) });
   }
 
-  const texto = textoDoPedido(args.pedido);
+  const pergunta = textoDoPedido(args.pedido);
+  const texto = args.transcricao
+    ? `Transcrição recente da call (o usuário aparece pelo nome ou como "Você"; os outros como "Participante"):\n${args.transcricao}\n\n---\n${pergunta}`
+    : pergunta;
   if (args.pedido.imagens.length) {
     mensagens.push({
       papel: 'user',

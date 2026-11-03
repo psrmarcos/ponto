@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { PedidoChat, RespostaPedidoChat, UsoIa } from '@ponto/shared';
 import { api } from '../api/cliente';
+import { useEstadoApp } from './app';
 import { useDominio } from './dominio';
 
 export interface Mensagem {
@@ -72,6 +73,8 @@ export const useChat = create<Chat>((set, get) => ({
         web,
         raciocinio,
         imagens: anexos.map((a) => a.dataUrl),
+        // Gravando: a API junta o trecho recente da conversa como contexto.
+        sessaoId: useEstadoApp.getState().estado?.captura.sessaoId ?? null,
       };
       pendentes.set(idIa, true);
       await api.post<RespostaPedidoChat>('/chat/mensagens', pedido);

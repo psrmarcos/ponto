@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IdJanela } from './janelas';
 import { IdSegredo } from './segredos';
+import { EstadoCaptura } from './transcricao';
 
 /** Atalhos globais configuráveis. Valor no formato Accelerator do Electron (ex.: "CommandOrControl+Shift+I"). */
 export const AcaoAtalho = z.enum([
@@ -10,6 +11,7 @@ export const AcaoAtalho = z.enum([
   'alternarTela',
   'alternarHome',
   'lerTela',
+  'alternarCaptura',
   'sair',
 ]);
 export type AcaoAtalho = z.infer<typeof AcaoAtalho>;
@@ -21,6 +23,7 @@ export const ATALHOS_PADRAO: Record<AcaoAtalho, string> = {
   alternarTela: 'CommandOrControl+Shift+E',
   alternarHome: 'CommandOrControl+Shift+O',
   lerTela: 'CommandOrControl+Shift+S',
+  alternarCaptura: 'CommandOrControl+Shift+G',
   sair: 'CommandOrControl+Shift+Q',
 };
 
@@ -44,6 +47,7 @@ export const EstadoApp = z.object({
   /** Atalhos que o SO recusou registrar (outro app já usa). */
   atalhosComErro: z.array(AcaoAtalho),
   api: z.object({ status: StatusApi }),
+  captura: EstadoCaptura,
   /** Quais chaves de API estão cadastradas (nunca o valor). */
   chavesConfiguradas: z.array(IdSegredo),
   plataforma: z.enum(['win32', 'darwin', 'linux']),

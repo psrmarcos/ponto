@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { IdJanela, Retangulo } from './janelas';
 import { AcaoAtalho, EstadoApp } from './estado';
 import { IdSegredo, StatusSegredo } from './segredos';
+import { ComandoCaptura, EstadoCaptura, NiveisAudio } from './transcricao';
 
 export const ConexaoApi = z.object({ url: z.string().url(), ws: z.string(), token: z.string() });
 export type ConexaoApi = z.infer<typeof ConexaoApi>;
@@ -41,15 +42,25 @@ export const contratoIpc = {
     },
     'arquivo.escolherImagem': { entrada: nada, saida: ImagemEscolhida.nullable() },
     'app.sair': { entrada: nada, saida: nada },
+    /** Gravar, pausar, retomar ou encerrar a sessão de transcrição. */
+    'captura.comandar': { entrada: ComandoCaptura, saida: nada },
   },
   enviar: {
     /** Retângulos (px da janela) que recebem o mouse; fora deles o clique atravessa. */
     'janela.areasSolidas': z.object({ areas: z.array(Retangulo).max(64) }),
+    /** Só da janela de captura (invisível): como está a gravação. */
+    'captura.status': EstadoCaptura,
+    /** Só da janela de captura: volume dos canais, ~10 vezes por segundo. */
+    'captura.niveis': NiveisAudio,
   },
   eventos: {
     estado: EstadoApp,
     'chat.alternar': nada,
     'tela.ler': nada,
+    /** Para a janela de captura: o que fazer. */
+    'captura.comando': ComandoCaptura,
+    /** Para as janelas visíveis, enquanto grava. */
+    'audio.niveis': NiveisAudio,
   },
 } as const;
 

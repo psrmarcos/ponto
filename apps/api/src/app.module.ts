@@ -9,9 +9,11 @@ import { IaModule } from './ia/ia.module';
 import { SaudeController } from './saude.controller';
 import { SegredosModule } from './segredos/segredos.module';
 import { UsoModule } from './uso/uso.module';
+import { SessoesModule } from './sessoes/sessoes.module';
+import { TranscricaoModule } from './transcricao/transcricao.module';
 
 @Module({
-  imports: [DbModule, SegredosModule, EventosModule, ConfiguracoesModule, UsoModule, AgentesModule, IaModule],
+  imports: [DbModule, SegredosModule, EventosModule, ConfiguracoesModule, UsoModule, AgentesModule, IaModule, SessoesModule, TranscricaoModule],
   controllers: [SaudeController],
   providers: [{ provide: APP_GUARD, useClass: TokenGuard }],
 })

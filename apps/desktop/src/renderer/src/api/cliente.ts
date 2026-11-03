@@ -66,6 +66,22 @@ class ClienteApi {
     return this.pedir<T>('PATCH', caminho, corpo);
   }
 
+  /** Manda um WAV cru (sem JSON nem base64). */
+  async enviarAudio(caminho: string, wav: ArrayBuffer): Promise<void> {
+    const c = this.conexao ?? (await window.ponto.invocar('api.conexao'));
+    if (!c) throw new Error('A API local ainda está iniciando.');
+    this.conexao = c;
+    const r = await fetch(c.url + caminho, {
+      method: 'POST',
+      headers: { [CABECALHO_TOKEN]: c.token, 'content-type': 'audio/wav' },
+      body: wav,
+    }).catch((e: unknown) => {
+      this.conexao = null; // a API pode ter reiniciado em outra porta
+      throw e;
+    });
+    if (!r.ok) throw new Error(`Erro ${r.status} ao enviar o áudio`);
+  }
+
   private async pedir<T>(metodo: string, caminho: string, corpo?: unknown): Promise<T> {
     const c = this.conexao ?? (await window.ponto.invocar('api.conexao'));
     if (!c) throw new Error('A API local ainda está iniciando.');
@@ -74,6 +90,9 @@ class ClienteApi {
       method: metodo,
       headers: { [CABECALHO_TOKEN]: c.token, ...(corpo !== undefined ? { 'content-type': 'application/json' } : {}) },
       body: corpo !== undefined ? JSON.stringify(corpo) : undefined,
+    }).catch((e: unknown) => {
+      this.conexao = null; // a API pode ter reiniciado em outra porta
+      throw e;
     });
     if (!r.ok) {
       const j = (await r.json().catch(() => null)) as { message?: string; mensagem?: string } | null;

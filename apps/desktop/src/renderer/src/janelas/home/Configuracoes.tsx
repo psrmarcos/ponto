@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import type { AcaoAtalho, ModeloIa } from '@ponto/shared';
+import { INFO_PROVEDORES_STT, IdProvedorStt, type AcaoAtalho, type Configuracoes as Config, type ModeloIa } from '@ponto/shared';
 import { api } from '../../api/cliente';
 import { useEstadoApp, useStealth } from '../../estado/app';
 import { useDominio } from '../../estado/dominio';
@@ -12,6 +12,7 @@ const ROTULOS_ATALHO: Record<AcaoAtalho, string> = {
   alternarTela: 'Painel da tela',
   alternarHome: 'Abrir a Home',
   lerTela: 'Ler a tela agora',
+  alternarCaptura: 'Gravar / pausar a transcrição',
   sair: 'Fechar o app',
 };
 
@@ -77,6 +78,63 @@ export function Configuracoes() {
             <div className="t2">Pode ser ligada em cada pergunta pelo chip Web. Cada busca custa tokens.</div>
           </div>
           <Chave ligada={config.webPorPadrao} rotulo="Web por padrão" aoMudar={(v) => void salvar({ webPorPadrao: v })} />
+        </div>
+      </div>
+
+      <span className="grupo-titulo">Transcrição</span>
+      <div className="grupo">
+        <div className="ajuste">
+          <div className="principal">
+            <div className="t1">Serviço de transcrição</div>
+            <div className="t2">
+              {config.provedorStt === 'openrouter'
+                ? 'Usa a mesma chave do chat. Whisper turbo custa cerca de US$ 0,01 por hora de call.'
+                : 'Usa a chave do Deepgram (cadastre em Perfil). Cerca de US$ 0,26 por hora de call.'}
+            </div>
+          </div>
+          <select
+            aria-label="Serviço de transcrição"
+            value={config.provedorStt}
+            onChange={(e) => {
+              const p = IdProvedorStt.parse(e.target.value);
+              void salvar({ provedorStt: p, modeloStt: INFO_PROVEDORES_STT[p].modeloPadrao });
+            }}
+          >
+            {IdProvedorStt.options.map((p) => (
+              <option key={p} value={p}>
+                {INFO_PROVEDORES_STT[p].nome}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="ajuste">
+          <div className="principal">
+            <div className="t1">Modelo de transcrição</div>
+            <div className="t2">Padrão: {INFO_PROVEDORES_STT[config.provedorStt].modeloPadrao}.</div>
+          </div>
+          <input
+            className="campo-texto"
+            key={config.provedorStt}
+            defaultValue={config.modeloStt}
+            spellCheck={false}
+            aria-label="Modelo de transcrição"
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v && v !== config.modeloStt) void salvar({ modeloStt: v });
+            }}
+          />
+        </div>
+        <div className="ajuste">
+          <div className="principal">
+            <div className="t1">Idioma da conversa</div>
+            <div className="t2">Fixar o idioma deixa a transcrição mais precisa que a detecção automática.</div>
+          </div>
+          <select aria-label="Idioma da conversa" value={config.idioma} onChange={(e) => void salvar({ idioma: e.target.value as Config['idioma'] })}>
+            <option value="auto">Detectar</option>
+            <option value="pt-BR">Português (BR)</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
         </div>
       </div>
 
