@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdJanela } from './janelas';
+import { IdJanela, Retangulo } from './janelas';
 import { AcaoAtalho, EstadoApp } from './estado';
 import { IdSegredo, StatusSegredo } from './segredos';
 
@@ -43,8 +43,8 @@ export const contratoIpc = {
     'app.sair': { entrada: nada, saida: nada },
   },
   enviar: {
-    /** O mouse entrou/saiu de uma área sólida: liga/desliga o clique-através. */
-    'janela.mouse': z.object({ ignorar: z.boolean() }),
+    /** Retângulos (px da janela) que recebem o mouse; fora deles o clique atravessa. */
+    'janela.areasSolidas': z.object({ areas: z.array(Retangulo).max(64) }),
   },
   eventos: {
     estado: EstadoApp,

@@ -6,6 +6,7 @@ import { DEFINICOES } from './definicoes';
 import { protegerMoldura, limparMoldura } from './moldura-win32';
 import { StealthService } from './stealth';
 import { ZOrderService } from './zorder';
+import { CliqueAtravesService } from './clique-atraves';
 
 const COR_HOME = '#16161B';
 
@@ -18,6 +19,7 @@ export class GerenciadorJanelas {
   private readonly janelas = new Map<IdJanela, BrowserWindow>();
   readonly stealth: StealthService;
   readonly zorder: ZOrderService;
+  readonly cliqueAtraves = new CliqueAtravesService();
 
   constructor(
     private readonly prefs: PreferenciasService,
@@ -70,13 +72,6 @@ export class GerenciadorJanelas {
     this.aoMudar();
   }
 
-  /** Liga/desliga o clique-através de uma janela flutuante. */
-  definirIgnorarMouse(win: BrowserWindow, ignorar: boolean): void {
-    const id = this.idDe(win);
-    if (!id || !DEFINICOES[id].flutuante) return;
-    win.setIgnoreMouseEvents(ignorar, { forward: true });
-  }
-
   private criar(id: IdJanela): BrowserWindow {
     const def = DEFINICOES[id];
     const salvo = this.prefs.valor.janelas[id];
@@ -119,7 +114,7 @@ export class GerenciadorJanelas {
     this.zorder.registrar(win);
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     if (def.flutuante) {
-      win.setIgnoreMouseEvents(true, { forward: true });
+      this.cliqueAtraves.registrar(win);
       protegerMoldura(win);
     }
 

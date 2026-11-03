@@ -117,9 +117,9 @@ function iniciar(): void {
       'app.sair': () => app.quit(),
     },
     {
-      'janela.mouse': ({ ignorar }, e) => {
+      'janela.areasSolidas': ({ areas }, e) => {
         const w = BrowserWindow.fromWebContents(e.sender);
-        if (w) janelas.definirIgnorarMouse(w, ignorar);
+        if (w) janelas.cliqueAtraves.definirAreas(w, areas);
       },
     },
     nossas,
@@ -133,6 +133,7 @@ function iniciar(): void {
   app.on('before-quit', () => {
     marcarEncerrando();
     janelas.zorder.parar();
+    janelas.cliqueAtraves.parar();
     prefs.salvarAgora();
     api.parar();
   });
