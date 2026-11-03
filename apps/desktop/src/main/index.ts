@@ -110,6 +110,15 @@ function iniciar(): void {
       'estado.obter': () => montarEstado(),
       'stealth.definir': ({ ligado }) => janelas.stealth.definir(ligado),
       'janela.alternar': ({ id, visivel }) => janelas.alternar(id, visivel),
+      'janela.controlar': ({ acao }, e) => {
+        const w = BrowserWindow.fromWebContents(e.sender);
+        if (w && acao === 'minimizar') w.minimize();
+        if (w && acao === 'maximizar') {
+          if (w.isMaximized()) w.unmaximize();
+          else w.maximize();
+        }
+        return { maximizada: w?.isMaximized() ?? false };
+      },
       'janela.focarEntrada': (_d, e) => {
         const w = BrowserWindow.fromWebContents(e.sender);
         w?.focus();

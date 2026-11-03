@@ -51,7 +51,8 @@ export class GerenciadorJanelas {
   }
 
   visivel(id: IdJanela): boolean {
-    return this.obter(id)?.isVisible() ?? false;
+    const w = this.obter(id);
+    return !!w && w.isVisible() && !w.isMinimized();
   }
 
   criarTodas(): void {
@@ -62,6 +63,13 @@ export class GerenciadorJanelas {
   alternar(id: IdJanela, visivel?: boolean): void {
     const w = this.obter(id);
     if (!w) return;
+    // Minimizada (sem ícone na barra de tarefas, por causa da invisibilidade): o botão Home traz de volta.
+    if (w.isMinimized() && visivel !== false) {
+      w.restore();
+      w.focus();
+      this.aoMudar();
+      return;
+    }
     const mostrar = visivel ?? !w.isVisible();
     if (mostrar === w.isVisible()) return;
     if (mostrar) {
@@ -126,6 +134,8 @@ export class GerenciadorJanelas {
       this.aoMudar();
     });
     win.on('hide', () => this.aoMudar());
+    win.on('minimize', () => this.aoMudar());
+    win.on('restore', () => this.aoMudar());
     const lembrar = () => this.prefs.alterar((p) => (p.janelas[id] = { ...p.janelas[id], retangulo: win.getBounds() }));
     win.on('moved', lembrar);
     win.on('resized', lembrar);

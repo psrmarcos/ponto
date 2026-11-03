@@ -585,3 +585,11 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .painel-contexto .item { min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
 .painel-contexto .item:disabled { opacity: 0.5; cursor: default; }
 .aviso-contexto { color: var(--vermelho); }
+
+/* ---------- Home: barra de título de janela normal ---------- */
+.barra-janela { -webkit-app-region: drag; display: flex; align-items: center; gap: 2px; height: 38px; padding: 0 0 0 12px; border-bottom: 1px solid var(--borda); flex: none; }
+.barra-janela .botao-janela { -webkit-app-region: no-drag; width: 44px; height: 38px; display: flex; align-items: center; justify-content: center; color: var(--texto-2); }
+.barra-janela .botao-janela:hover { background: rgba(255, 255, 255, 0.08); color: var(--texto); }
+.barra-janela .botao-janela.fechar:hover { background: #C42B1C; color: #fff; }
+.janela-home { padding: 0; display: flex; }
+.janela-home > .painel { border-radius: 0; border: 0; }

@@ -29,6 +29,11 @@ export const contratoIpc = {
     'stealth.definir': { entrada: z.object({ ligado: z.boolean() }), saida: nada },
     'janela.alternar': { entrada: z.object({ id: IdJanela, visivel: z.boolean().optional() }), saida: nada },
     'janela.focarEntrada': { entrada: nada, saida: nada },
+    /** Botões de janela da Home (a janela de quem chama). */
+    'janela.controlar': {
+      entrada: z.object({ acao: z.enum(['minimizar', 'maximizar', 'estado']) }),
+      saida: z.object({ maximizada: z.boolean() }),
+    },
     'atalhos.definir': {
       entrada: z.object({ acao: AcaoAtalho, accelerator: z.string().min(1) }),
       saida: z.object({ ok: z.boolean(), erro: z.string().optional() }),
