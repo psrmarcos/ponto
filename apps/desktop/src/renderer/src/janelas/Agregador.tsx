@@ -254,11 +254,11 @@ function Caixa() {
       <div className="barra">
         <SeletorAgente />
         <SeletorModelo />
-        <button type="button" className="chip" aria-pressed={web} title="Pesquisa na web" onClick={alternarWeb}>
-          <Globe size={14} /> Web
+        <button type="button" className="chip so-icone" aria-pressed={web} aria-label="Pesquisa na web" title="Pesquisa na web" onClick={alternarWeb}>
+          <Globe size={15} />
         </button>
-        <button type="button" className="chip" aria-pressed={raciocinio} title="Pensar mais antes de responder" onClick={alternarRaciocinio}>
-          <Brain size={14} /> Raciocínio
+        <button type="button" className="chip so-icone" aria-pressed={raciocinio} aria-label="Raciocínio" title="Raciocínio: pensa mais antes de responder (mais lento e caro)" onClick={alternarRaciocinio}>
+          <Brain size={15} />
         </button>
 
         <Menu

@@ -194,7 +194,8 @@
   .menu.agentes { width: 290px; }
 
   /* ---------- Seletor de modelo ---------- */
-  .chip-texto { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip.so-icone { width: 30px; padding: 0; justify-content: center; }
+  .chip-texto { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .menu.modelos { width: 330px; }
   .busca-modelo {
     display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 4px;
