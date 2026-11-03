@@ -624,5 +624,5 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .carregando-aba { display: flex; align-items: center; gap: 6px; }
 @keyframes girar { to { transform: rotate(360deg); } }
 .girando { animation: girar 0.9s linear infinite; }
-/* Transcrição e Tela um pouco mais transparentes que o chat. */
-body[data-janela="transcricao"] .painel, body[data-janela="tela"] .painel { background: rgba(20, 20, 24, 0.86); }
+/* Transcrição e Tela quase sólidas: o fundo não atrapalha a leitura. */
+body[data-janela="transcricao"] .painel, body[data-janela="tela"] .painel { background: rgba(18, 18, 22, 0.985); }
