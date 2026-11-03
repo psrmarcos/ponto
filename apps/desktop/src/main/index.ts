@@ -9,6 +9,7 @@ import { emitir, registrarIpc } from './ipc';
 import { GerenciadorJanelas, marcarEncerrando } from './janelas/gerenciador';
 import { PreferenciasService } from './preferencias';
 import { SegredosService } from './segredos';
+import { capturarTela } from './tela';
 
 /**
  * Processo principal: o único que fala com o sistema operacional. Monta os
@@ -63,15 +64,22 @@ function iniciar(): void {
       alternarTranscricao: () => janelas.alternar('transcricao'),
       alternarTela: () => janelas.alternar('tela'),
       alternarHome: () => janelas.alternar('home'),
-      lerTela: () => {
-        const w = janelas.obter('tela');
-        if (w) emitir(w.webContents, 'tela.ler', undefined);
-      },
+      lerTela: () => void lerTela(),
       alternarCaptura: () => captura.alternar(),
       sair: () => app.quit(),
     },
     difundir,
   );
+
+  /** Print da tela: o chat (agregador) manda para a IA e a janela Tela mostra a prévia. */
+  async function lerTela(): Promise<void> {
+    const dataUrl = await capturarTela();
+    const dados = { dataUrl, em: Date.now() };
+    for (const id of ['agregador', 'tela'] as const) {
+      const w = janelas.obter(id);
+      if (w) emitir(w.webContents, 'tela.lida', dados);
+    }
+  }
 
   function montarEstado(): EstadoApp {
     const vis = {} as EstadoApp['janelas'];
@@ -122,6 +130,7 @@ function iniciar(): void {
       },
       'app.sair': () => app.quit(),
       'captura.comandar': (c) => captura.comandar(c),
+      'tela.ler': () => lerTela(),
     },
     {
       'janela.areasSolidas': ({ areas }, e) => {

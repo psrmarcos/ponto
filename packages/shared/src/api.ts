@@ -46,6 +46,8 @@ export const Configuracoes = z.object({
   provedorPadrao: IdProvedorIa,
   /** Modelo do "System 2" (quem escreve as respostas). */
   modeloPadrao: z.string().min(1),
+  /** Usado quando vai imagem (print da tela) e o modelo das respostas não enxerga. */
+  modeloVisao: z.string().min(1),
   /** Modelo barato para tarefas internas (títulos, compactação de histórico). */
   modeloRapido: z.string().min(1),
   sugestoesAutomaticas: z.boolean(),
@@ -67,6 +69,8 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   provedorPadrao: 'openrouter',
   modeloPadrao: 'google/gemini-3.8-flash',
   modeloRapido: 'google/gemini-3.5-flash-lite',
+  // Medido no PC do Marcos: ~1,4 s de ponta a ponta e US$ 0,0002 por resposta.
+  modeloVisao: 'google/gemini-2.5-flash-lite',
   sugestoesAutomaticas: true,
   webPorPadrao: false,
   // Fixar o idioma evita que ruído vire frase em outra língua.
@@ -100,7 +104,7 @@ export const PedidoChat = z.object({
   respostaId: z.string().uuid(),
   texto: z.string().max(8000),
   /** Atalho clicado (Assist, O que devo dizer?, Perguntas de follow-up). */
-  atalho: z.enum(['assist', 'oQueDizer', 'followUp']).nullable(),
+  atalho: z.enum(['assist', 'oQueDizer', 'followUp', 'tela']).nullable(),
   agenteId: z.string(),
   web: z.boolean(),
   raciocinio: z.boolean(),
@@ -142,6 +146,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('transcricao.fala'), fala: Fala }),
   /** Falas apagadas (até `ateMs`, inclusive). */
   z.object({ tipo: z.literal('transcricao.limpa'), sessaoId: z.string(), ateMs: z.number() }),
+  /** O app detectou uma pergunta para o usuário e já começou a responder (chat.* com este respostaId). */
+  z.object({ tipo: z.literal('sugestao.nova'), sessaoId: z.string(), respostaId: z.string(), pergunta: z.string() }),
   z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),
 ]);
 export type EventoWs = z.infer<typeof EventoWs>;

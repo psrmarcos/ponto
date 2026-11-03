@@ -12,5 +12,6 @@ import { ProvedoresService } from './provedores/provedores.service';
   imports: [AgentesModule, SessoesModule, TranscricaoModule],
   controllers: [IaController, ChatController],
   providers: [OpenRouterProvider, ProvedoresService, ChatService],
+  exports: [ChatService],
 })
 export class IaModule {}

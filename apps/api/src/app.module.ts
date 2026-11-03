@@ -11,9 +11,10 @@ import { SegredosModule } from './segredos/segredos.module';
 import { UsoModule } from './uso/uso.module';
 import { SessoesModule } from './sessoes/sessoes.module';
 import { TranscricaoModule } from './transcricao/transcricao.module';
+import { SugestoesModule } from './sugestoes/sugestoes.module';
 
 @Module({
-  imports: [DbModule, SegredosModule, EventosModule, ConfiguracoesModule, UsoModule, AgentesModule, IaModule, SessoesModule, TranscricaoModule],
+  imports: [DbModule, SegredosModule, EventosModule, ConfiguracoesModule, UsoModule, AgentesModule, IaModule, SessoesModule, TranscricaoModule, SugestoesModule],
   controllers: [SaudeController],
   providers: [{ provide: APP_GUARD, useClass: TokenGuard }],
 })

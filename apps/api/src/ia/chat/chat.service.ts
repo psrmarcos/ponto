@@ -7,7 +7,7 @@ import { UsoService } from '../../uso/uso.service';
 import { SessoesService } from '../../sessoes/sessoes.service';
 import { TranscricaoService } from '../../transcricao/transcricao.service';
 import { ProvedoresService } from '../provedores/provedores.service';
-import { ErroProvedor } from '../provedores/provedor';
+import { ErroProvedor, type ProvedorIa } from '../provedores/provedor';
 import { montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior } from './prompt';
 
 /** Junta os pedacinhos do streaming e manda no máximo a cada N ms (menos mensagens, menos re-render). */
@@ -50,6 +50,12 @@ export class ChatService {
     return { respostaId };
   }
 
+  /** Pela lista de modelos do provedor (em cache). Na dúvida, confia no modelo escolhido. */
+  private async enxerga(provedor: ProvedorIa, modelo: string): Promise<boolean> {
+    const lista = await provedor.listarModelos().catch(() => null);
+    return lista?.find((m) => m.id === modelo)?.aceitaImagem ?? true;
+  }
+
   cancelar(conversaId: string): void {
     this.conversas.get(conversaId)?.emAndamento?.abort();
   }
@@ -82,8 +88,10 @@ export class ChatService {
         );
       }
       const agente = await this.agentes.obter(pedido.agenteId).catch(() => this.agentes.obter('geral'));
-      const modelo = agente.modelo ?? config.modeloPadrao;
       const provedor = this.provedores.obter(config.provedorPadrao);
+      let modelo = agente.modelo ?? config.modeloPadrao;
+      // Com imagem (print da tela, anexo), troca para o modelo de visão se o escolhido não enxerga.
+      if (pedido.imagens.length && !(await this.enxerga(provedor, modelo))) modelo = config.modeloVisao;
       // A última fala (normalmente a pergunta) pode estar a 1-2 s de virar texto: espera no máximo 1,2 s por ela e segue sem (rapidez vale mais).
       if (pedido.sessaoId) await this.transcricao.aguardarPendentes(pedido.sessaoId, ESPERA_TRANSCRICAO_MS);
       const transcricao = pedido.sessaoId ? await this.sessoes.contextoRecente(pedido.sessaoId).catch(() => null) : null;

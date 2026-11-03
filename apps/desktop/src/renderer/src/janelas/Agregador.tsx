@@ -8,6 +8,7 @@ import {
   Check,
   DotsSixVertical,
   DotsThree,
+  Ear,
   Eye,
   EyeSlash,
   GearSix,
@@ -31,6 +32,7 @@ import {
 import { useCaptura, useEstadoApp, useJanelaVisivel, useStealth } from '../estado/app';
 import { useChat, type Mensagem } from '../estado/chat';
 import { useDominio } from '../estado/dominio';
+import { api } from '../api/cliente';
 import { Logo } from '../ui/Logo';
 import { Markdown } from '../ui/Markdown';
 import { Menu } from '../ui/Menu';
@@ -45,6 +47,9 @@ const abrir = (id: 'home' | 'transcricao' | 'tela', visivel?: boolean) =>
 export function Agregador() {
   const [chatVisivel, setChatVisivel] = useState(true);
   useEffect(() => window.ponto.ouvir('chat.alternar', () => setChatVisivel((v) => !v)), []);
+  // Pergunta detectada na call: o chat aparece com a resposta já sendo escrita.
+  useEffect(() => api.ouvir((e) => e.tipo === 'sugestao.nova' && setChatVisivel(true)), []);
+  useEffect(() => window.ponto.ouvir('tela.lida', () => setChatVisivel(true)), []);
 
   return (
     <div className="palco">
@@ -178,6 +183,16 @@ function Mensagens() {
 }
 
 function Balao({ m }: { m: Mensagem }) {
+  if (m.automatica) {
+    return (
+      <div className="msg detectada">
+        <span className="rotulo-detectada">
+          <Ear size={12} weight="bold" /> Te perguntaram
+        </span>
+        {m.texto}
+      </div>
+    );
+  }
   if (m.papel === 'eu') {
     return (
       <div className="msg eu">
@@ -328,7 +343,7 @@ function Caixa() {
         </Menu>
 
         <div className="espaco" />
-        <button type="button" className="icone" aria-label="Tirar print da tela" title="Print da tela (chega com a janela Tela)" disabled>
+        <button type="button" className="icone" aria-label="Ler a tela" title="Ler a tela (Ctrl+Shift+S)" onClick={() => void window.ponto.invocar('tela.ler').catch(() => {})}>
           <ScanSmiley size={17} />
         </button>
         <button type="button" className="icone" aria-label="Adicionar imagem" title="Adicionar imagem" onClick={() => void escolherImagem()}>

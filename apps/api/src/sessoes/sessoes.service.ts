@@ -14,6 +14,14 @@ const MAX_FALAS_CONTEXTO = 40;
 
 @Injectable()
 export class SessoesService {
+  private readonly ouvintesFala = new Set<(f: Fala) => void>();
+
+  /** Avisa quem precisa reagir a cada fala nova (ex.: sugestões automáticas). */
+  aoNovaFala(fn: (f: Fala) => void): () => void {
+    this.ouvintesFala.add(fn);
+    return () => this.ouvintesFala.delete(fn);
+  }
+
   constructor(
     @Inject(BANCO) private readonly banco: Banco,
     private readonly config: ConfiguracoesService,
@@ -56,6 +64,7 @@ export class SessoesService {
     const fala: Fala = { id: novoId(), falante: null, ...dados };
     await this.banco.insert(falas).values(fala);
     this.eventos.emitir({ tipo: 'transcricao.fala', fala });
+    this.ouvintesFala.forEach((fn) => fn(fala));
     return fala;
   }
 
@@ -64,13 +73,13 @@ export class SessoesService {
    * por tamanho. Vai na mensagem do usuário (não no prefixo fixo), para não
    * quebrar o cache do provedor a cada fala nova.
    */
-  async contextoRecente(sessaoId: string): Promise<string | null> {
+  async contextoRecente(sessaoId: string, maxFalas = MAX_FALAS_CONTEXTO): Promise<string | null> {
     const ultimas = await this.banco
       .select({ canal: falas.canal, falante: falas.falante, texto: falas.texto })
       .from(falas)
       .where(eq(falas.sessaoId, sessaoId))
       .orderBy(desc(falas.inicioMs))
-      .limit(MAX_FALAS_CONTEXTO);
+      .limit(maxFalas);
     if (!ultimas.length) return null;
     const { nomeUsuario } = await this.config.obter();
     const linhas: string[] = [];

@@ -13,6 +13,8 @@ export interface Mensagem {
   estado: 'enviando' | 'escrevendo' | 'pronta' | 'erro';
   modelo?: string;
   uso?: UsoIa | null;
+  /** Pergunta que o app detectou sozinho na call (não foi você que mandou). */
+  automatica?: boolean;
 }
 
 export interface Anexo {
@@ -100,6 +102,7 @@ function rotuloAtalho(a: PedidoChat['atalho']): string {
   if (a === 'assist') return 'Assist';
   if (a === 'oQueDizer') return 'O que devo dizer?';
   if (a === 'followUp') return 'Perguntas de follow-up';
+  if (a === 'tela') return 'Ler a tela';
   return '(imagem)';
 }
 
@@ -108,8 +111,26 @@ export function iniciarChat(): void {
   const atualizar = (id: string, fn: (m: Mensagem) => Mensagem) =>
     useChat.setState((s) => ({ mensagens: s.mensagens.map((m) => (m.id === id ? fn(m) : m)) }));
 
+  // Print da tela (botão na janela Tela ou Ctrl+Shift+S): vai para a IA como imagem.
+  window.ponto.ouvir('tela.lida', ({ dataUrl }) => {
+    const chat = useChat.getState();
+    chat.anexar({ nome: 'Tela', dataUrl });
+    void chat.enviar('', 'tela');
+  });
+
   api.ouvir((e) => {
     switch (e.tipo) {
+      case 'sugestao.nova':
+        pendentes.set(e.respostaId, true);
+        useChat.setState((s) => ({
+          ocupado: true,
+          mensagens: [
+            ...s.mensagens,
+            { id: novoId(), papel: 'eu', texto: e.pergunta, estado: 'pronta', automatica: true },
+            { id: e.respostaId, papel: 'ia', texto: '', estado: 'enviando' },
+          ],
+        }));
+        break;
       case 'chat.inicio':
         atualizar(e.respostaId, (m) => ({ ...m, estado: 'escrevendo', modelo: e.modelo }));
         break;

@@ -44,6 +44,8 @@ export const contratoIpc = {
     'app.sair': { entrada: nada, saida: nada },
     /** Gravar, pausar, retomar ou encerrar a sessão de transcrição. */
     'captura.comandar': { entrada: ComandoCaptura, saida: nada },
+    /** Tira um print da tela onde está o cursor e manda para o chat analisar. */
+    'tela.ler': { entrada: nada, saida: nada },
   },
   enviar: {
     /** Retângulos (px da janela) que recebem o mouse; fora deles o clique atravessa. */
@@ -56,7 +58,8 @@ export const contratoIpc = {
   eventos: {
     estado: EstadoApp,
     'chat.alternar': nada,
-    'tela.ler': nada,
+    /** Print pronto (JPEG reduzido). O chat manda para a IA; a janela Tela mostra a prévia. */
+    'tela.lida': z.object({ dataUrl: z.string(), em: z.number() }),
     /** Para a janela de captura: o que fazer. */
     'captura.comando': ComandoCaptura,
     /** Para as janelas visíveis, enquanto grava. */

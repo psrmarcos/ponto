@@ -1,35 +1,69 @@
 import { useEffect, useState } from 'react';
-import { Monitor } from '@phosphor-icons/react';
+import { Monitor, Scan } from '@phosphor-icons/react';
+import { useStealth } from '../estado/app';
 import { Cabecalho } from '../ui/Cabecalho';
-import { Chave } from '../ui/Chave';
 
-/** Leitura da tela (print + visão). A captura e a análise entram no M2. */
+/**
+ * Leitura da tela: tira um print do monitor em que está o cursor e manda para a
+ * IA junto com a conversa. A resposta aparece no chat; aqui fica a prévia do que
+ * foi enviado.
+ */
 export function Tela() {
-  const [auto, setAuto] = useState(false);
-  const [pedido, setPedido] = useState(0);
-  useEffect(() => window.ponto.ouvir('tela.ler', () => setPedido((n) => n + 1)), []);
+  const [ultima, setUltima] = useState<{ dataUrl: string; em: number } | null>(null);
+  const [lendo, setLendo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const stealth = useStealth();
+  useEffect(
+    () =>
+      window.ponto.ouvir('tela.lida', (d) => {
+        setUltima(d);
+        setLendo(false);
+      }),
+    [],
+  );
+
+  const ler = async () => {
+    setLendo(true);
+    setErro(null);
+    try {
+      await window.ponto.invocar('tela.ler');
+    } catch (e) {
+      setErro((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
+      setLendo(false);
+    }
+  };
 
   return (
     <div className="janela-painel" style={{ flexDirection: 'column' }}>
       <div className="painel solido">
-        <Cabecalho janela="tela" icone={<Monitor size={16} weight="bold" />} titulo="Tela" />
+        <Cabecalho
+          janela="tela"
+          icone={<Monitor size={16} weight="bold" />}
+          titulo="Tela"
+          meta={ultima && <span className="meta">lida às {new Date(ultima.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+        />
         <div className="corpo">
-          <div className="vazio">
-            <Monitor size={28} />
-            <span className="t1">Nenhuma leitura ainda</span>
-            <span>
-              Aqui vai aparecer um resumo do que está na sua tela (slide, código, documento), para o copiloto usar nas
-              respostas. A imagem é reduzida antes de ir para a IA para gastar pouco.
-            </span>
-            {pedido > 0 && <span className="aviso">A leitura da tela chega no próximo passo.</span>}
-          </div>
+          {ultima ? (
+            <>
+              <img className="previa-tela" src={ultima.dataUrl} alt="Último print enviado para a IA" />
+              <span className="dica-tela">A resposta aparece no chat. {stealth.ligado ? 'As janelas do Ponto não entram no print.' : 'Atenção: com a invisibilidade desligada, as janelas do Ponto aparecem no print.'}</span>
+            </>
+          ) : (
+            <div className="vazio">
+              <Monitor size={28} />
+              <span className="t1">Nenhuma leitura ainda</span>
+              <span>
+                Tira um print do monitor em que está o mouse (slide, código, enunciado) e a IA responde no chat, junto
+                com o que está sendo falado.
+              </span>
+            </div>
+          )}
+          {erro && <span className="aviso">{erro}</span>}
         </div>
         <div className="rodape">
-          <Chave ligada={auto} aoMudar={setAuto} rotulo="Ler sozinho" desabilitada />
-          <span className="opcao">Ler a cada 30 s</span>
           <div className="espaco" />
-          <button type="button" className="botao-primario" disabled>
-            Ler agora <kbd>Ctrl</kbd>
+          <button type="button" className="botao-primario" disabled={lendo} onClick={() => void ler()}>
+            <Scan size={14} weight="bold" /> {lendo ? 'Lendo…' : 'Ler agora'} <kbd>Ctrl</kbd>
             <kbd>⇧</kbd>
             <kbd>S</kbd>
           </button>
