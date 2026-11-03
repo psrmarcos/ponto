@@ -5,6 +5,8 @@ import { ErroProvedor, type MensagemIa, type PedacoGeracao, type PedidoGeracao, 
 import { lerSse } from './sse';
 
 const BASE = 'https://openrouter.ai/api/v1';
+/** Modelos que raciocinam sem ser pedidos; neles o modo normal manda esforço mínimo. */
+const PENSA_POR_PADRAO = /^(google|openai)\//;
 const UMA_HORA = 60 * 60 * 1000;
 
 interface ModeloOpenRouter {
@@ -102,6 +104,9 @@ export class OpenRouterProvider implements ProvedorIa {
     // Busca na web: poucos resultados, porque cada página entra como tokens de entrada.
     if (pedido.web) corpo.plugins = [{ id: 'web', max_results: 3 }];
     if (pedido.raciocinio) corpo.reasoning = { effort: 'medium', exclude: true };
+    // Gemini e GPT pensam por padrão mesmo sem pedir. Numa call isso custa segundos e tokens:
+    // medido com gemini-3.8-flash, 5,9 s e 478 tokens de saída contra 2,6 s e 36 com 'minimal'.
+    else if (PENSA_POR_PADRAO.test(pedido.modelo)) corpo.reasoning = { effort: 'minimal', exclude: true };
 
     const r = await fetch(`${BASE}/chat/completions`, {
       method: 'POST',
