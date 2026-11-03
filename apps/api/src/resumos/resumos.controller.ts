@@ -45,6 +45,11 @@ export class ResumosController {
     return this.aoVivo.obter(id);
   }
 
+  @Post(':id/ao-vivo/resumo/regerar')
+  regerarResumo(@Param('id') id: string): Promise<AoVivo> {
+    return this.aoVivo.regerarResumo(id);
+  }
+
   /** Abriu a aba Resumo ou Insights: começa aquela análise e devolve a primeira versão. */
   @Post(':id/ao-vivo/:parte')
   ativarAoVivo(@Param('id') id: string, @Param('parte') parte: string): Promise<AoVivo> {

@@ -1,4 +1,5 @@
-import type { BrowserWindow } from 'electron';
+import { BrowserWindow } from 'electron';
+import { ordemCerta } from './pilha-win32';
 
 const INTERVALO_MS = 1000;
 
@@ -25,13 +26,17 @@ export class ZOrderService {
     win.on('will-resize', () => this.promover(win));
     win.on('focus', () => this.promover(win));
     win.on('show', () => this.promover(win));
-    // Alguns apps tiram o topmost de quem perde o foco: reafirma. Mas setAlwaysOnTop joga a
-    // janela para o topo da faixa "sempre no topo", então logo em seguida refazemos a ordem,
-    // senão a janela que perdeu o foco passaria na frente da que você acabou de arrastar.
+    // Alguns apps tiram o topmost de quem perde o foco. Mas reordenar a cada troca de foco
+    // entre as nossas próprias janelas fazia todas trocarem de lugar por um instante (a piscada).
+    // Então: se o foco foi para outra janela do Ponto, nada; senão, só conserta se estiver errado.
     win.on('blur', () => {
-      if (win.isDestroyed()) return;
-      win.setAlwaysOnTop(true, 'screen-saver');
-      this.reafirmar();
+      setTimeout(() => {
+        if (win.isDestroyed()) return;
+        const focada = BrowserWindow.getFocusedWindow();
+        if (focada && this.pilha.includes(focada)) return;
+        if (!win.isAlwaysOnTop()) win.setAlwaysOnTop(true, 'screen-saver');
+        this.verificar();
+      }, 0);
     });
   }
 
@@ -43,7 +48,7 @@ export class ZOrderService {
   }
 
   iniciar(): void {
-    this.timer ??= setInterval(() => this.reafirmar(), INTERVALO_MS);
+    this.timer ??= setInterval(() => this.verificar(), INTERVALO_MS);
   }
 
   parar(): void {
@@ -51,10 +56,17 @@ export class ZOrderService {
     this.timer = null;
   }
 
+  /** Reordena só quando a ordem real (lida no Windows) não bate com a pilha. */
+  private verificar(): void {
+    const visiveis = this.pilha.filter((w) => !w.isDestroyed() && w.isVisible() && !w.isMinimized());
+    if (ordemCerta(visiveis) === true) return;
+    this.reafirmar();
+  }
+
   /** De baixo para cima: o último a receber moveTop fica no topo. */
   private reafirmar(): void {
     for (const w of this.pilha) {
-      if (w.isDestroyed() || !w.isVisible()) continue;
+      if (w.isDestroyed() || !w.isVisible() || w.isMinimized()) continue;
       w.moveTop();
       this.aCadaVolta?.(w);
     }

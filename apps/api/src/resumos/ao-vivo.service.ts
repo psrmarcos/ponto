@@ -1,5 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import type { AoVivo, Fala, Insight, MetricasVoz, ParteAoVivo, ResumoAoVivo, TipoInsight } from '@ponto/shared';
+import type { AoVivo, ClimaConversa, Fala, Insight, MetricasVoz, ParteAoVivo, ResumoAoVivo, TipoInsight, TomConversa } from '@ponto/shared';
 import { novoId } from '../comum/id';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 import { EventosService } from '../eventos/eventos.service';
@@ -25,6 +25,7 @@ interface Estado {
   resumoAteMs: number;
   ultimoResumoEm: number;
   insights: Insight[];
+  tom: TomConversa | null;
   insightsAteMs: number;
   ultimoInsightsEm: number;
   /** Avisos de voz já dados (não repete). */
@@ -42,13 +43,15 @@ const PROMPT_RESUMO =
   'O usuário aparece pelo nome ou como "Você"; os outros como "Participante".';
 
 const PROMPT_INSIGHTS = `Você é um coach discreto que acompanha uma call ao vivo e só fala quando vale a pena.
-Leia o trecho recente e devolva SOMENTE um JSON: um array com 0, 1 ou 2 itens {"tipo": "oportunidade"|"risco"|"voz"|"dica", "texto": "..."}.
+Leia o trecho recente e devolva SOMENTE um JSON:
+{"tom": {"clima": "positivo"|"neutro"|"tenso"|"negativo", "outros": "...", "voce": "..."}, "insights": [0, 1 ou 2 itens {"tipo": "oportunidade"|"risco"|"voz"|"dica", "texto": "..."}]}
+- tom: o clima da conversa agora e como cada lado parece estar, em até 5 palavras cada (ex.: "interessado, fazendo perguntas", "hesitante com o preço"). Tire do que foi dito e de como foi dito (palavras, hesitação, objeções, entusiasmo). Sem falas dos outros, "outros" fica "".
 - oportunidade: algo que o usuário pode aproveitar agora (interesse, dor, gancho para um exemplo).
 - risco: objeção, mal-entendido, resposta fraca ou promessa arriscada.
 - voz: como o usuário está falando (enrolando, vago, defensivo, muito técnico, sem exemplo).
 - dica: uma pergunta ou frase concreta para usar agora.
 Texto com até 20 palavras, direto, em segunda pessoa ("Pergunte...", "Você..."). Português do Brasil.
-Na dúvida, devolva []. Nada óbvio, genérico ou repetido dos insights já dados.`;
+Na dúvida, "insights": []. Nada óbvio, genérico ou repetido dos insights já dados.`;
 
 /**
  * Análise ao vivo da call para as abas Resumo e Insights da Transcrição. Roda em
@@ -74,7 +77,7 @@ export class AoVivoService implements OnModuleInit {
 
   async obter(sessaoId: string): Promise<AoVivo> {
     const e = this.estado(sessaoId);
-    return { resumo: e.resumo, insights: e.insights, metricas: metricasVoz(await this.sessoes.falas(sessaoId)), ativo: { ...e.ativo } };
+    return { resumo: e.resumo, insights: e.insights, tom: e.tom, metricas: metricasVoz(await this.sessoes.falas(sessaoId)), ativo: { ...e.ativo } };
   }
 
   /**
@@ -100,6 +103,27 @@ export class AoVivoService implements OnModuleInit {
     return this.obter(sessaoId);
   }
 
+  /** Botão "Gerar de novo": refaz o resumo do zero com tudo o que já foi falado. */
+  async regerarResumo(sessaoId: string): Promise<AoVivo> {
+    const e = this.estado(sessaoId);
+    e.ativo.resumo = true;
+    const falas = await this.sessoes.falas(sessaoId);
+    const anterior = { resumo: e.resumo, ate: e.resumoAteMs };
+    e.resumo = null;
+    e.resumoAteMs = -1;
+    try {
+      await this.atualizarResumo(sessaoId, e, falas, 1);
+    } catch (err) {
+      this.log.warn(`regerar resumo falhou: ${(err as Error).message}`);
+    }
+    // Falhou ou não tinha fala: fica o que estava.
+    if (!e.resumo) {
+      e.resumo = anterior.resumo;
+      e.resumoAteMs = anterior.ate;
+    }
+    return this.obter(sessaoId);
+  }
+
   private estado(sessaoId: string): Estado {
     const versao = this.sessoes.versao(sessaoId);
     let e = this.estados.get(sessaoId);
@@ -112,6 +136,7 @@ export class AoVivoService implements OnModuleInit {
         resumoAteMs: -1,
         ultimoResumoEm: 0,
         insights: [],
+        tom: null,
         insightsAteMs: -1,
         ultimoInsightsEm: 0,
         avisosVoz: new Set(),
@@ -204,7 +229,7 @@ export class AoVivoService implements OnModuleInit {
     const bruto = await this.texto.gerar({
       origem: 'insights',
       sessaoId,
-      maxTokens: 300,
+      maxTokens: 350,
       timeoutMs: 30_000,
       mensagens: [
         { papel: 'system', conteudo: PROMPT_INSIGHTS },
@@ -214,6 +239,11 @@ export class AoVivoService implements OnModuleInit {
     if (this.sessoes.versao(sessaoId) !== versao) return;
     e.insightsAteMs = novas[novas.length - 1]!.inicioMs;
     for (const i of lerInsights(bruto)) this.adicionar(sessaoId, e, i.tipo, i.texto);
+    const tom = lerTom(bruto);
+    if (tom) {
+      e.tom = { ...tom, em: Date.now() };
+      this.eventos.emitir({ tipo: 'sessao.aoVivo', sessaoId, tom: e.tom });
+    }
   }
 
   /** Ritmo e tempo de fala: medidos aqui, sem gastar nada. Cada aviso sai uma vez por sessão. */
@@ -270,11 +300,19 @@ const TIPOS = new Set(['oportunidade', 'risco', 'voz', 'dica']);
 
 /** Aceita o JSON mesmo com cerca de código ou texto em volta; qualquer coisa estranha vira lista vazia. */
 export function lerInsights(bruto: string): Array<{ tipo: TipoInsight; texto: string }> {
-  const inicio = bruto.indexOf('[');
-  const fim = bruto.lastIndexOf(']');
-  if (inicio < 0 || fim <= inicio) return [];
+  const objeto = lerObjeto(bruto);
+  let v: unknown = objeto ? objeto.insights : undefined;
+  if (v === undefined) {
+    const inicio = bruto.indexOf('[');
+    const fim = bruto.lastIndexOf(']');
+    if (inicio < 0 || fim <= inicio) return [];
+    try {
+      v = JSON.parse(bruto.slice(inicio, fim + 1));
+    } catch {
+      return [];
+    }
+  }
   try {
-    const v: unknown = JSON.parse(bruto.slice(inicio, fim + 1));
     if (!Array.isArray(v)) return [];
     return v
       .filter((i): i is { tipo: string; texto: string } => !!i && typeof i.tipo === 'string' && typeof i.texto === 'string')
@@ -284,4 +322,26 @@ export function lerInsights(bruto: string): Array<{ tipo: TipoInsight; texto: st
   } catch {
     return [];
   }
+}
+
+function lerObjeto(bruto: string): Record<string, unknown> | null {
+  const inicio = bruto.indexOf('{');
+  const fim = bruto.lastIndexOf('}');
+  if (inicio < 0 || fim <= inicio) return null;
+  try {
+    const v: unknown = JSON.parse(bruto.slice(inicio, fim + 1));
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+const CLIMAS = new Set(['positivo', 'neutro', 'tenso', 'negativo']);
+
+/** O "tom" que vem junto dos insights; sem ele (ou estranho), null. */
+export function lerTom(bruto: string): Omit<TomConversa, 'em'> | null {
+  const t = lerObjeto(bruto)?.tom as Record<string, unknown> | undefined;
+  if (!t || typeof t.clima !== 'string' || !CLIMAS.has(t.clima)) return null;
+  const curto = (x: unknown) => (typeof x === 'string' ? x.trim().slice(0, 60) : '');
+  return { clima: t.clima as ClimaConversa, outros: curto(t.outros), voce: curto(t.voce) };
 }

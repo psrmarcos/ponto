@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { create } from 'zustand';
-import { ChatText, CircleNotch, Lightbulb, ListBullets, Microphone, Sparkle, TrendUp, Warning } from '@phosphor-icons/react';
-import type { AoVivo, Insight, ParteAoVivo, TipoInsight } from '@ponto/shared';
+import { ArrowClockwise, ChatText, CircleNotch, Lightbulb, ListBullets, Microphone, Smiley, Sparkle, TrendUp, Warning } from '@phosphor-icons/react';
+import type { AoVivo, ClimaConversa, Insight, ParteAoVivo, TipoInsight } from '@ponto/shared';
 import { api } from '../../api/cliente';
 import { useDominio } from '../../estado/dominio';
 import { useTranscricao } from '../../estado/transcricao';
@@ -13,6 +13,7 @@ export type AbaTranscricao = 'bruta' | 'resumo' | 'insights';
 const VAZIO: AoVivo = {
   resumo: null,
   insights: [],
+  tom: null,
   metricas: { suaParte: 0, seuRitmo: null, suaMaiorFala: 0 },
   ativo: { resumo: false, insights: false },
 };
@@ -36,6 +37,20 @@ function ativar(parte: ParteAoVivo): void {
     })
     .catch(() => undefined)
     .finally(() => useAoVivo.setState((s) => ({ gerando: { ...s.gerando, [parte]: false } })));
+}
+
+/** Botão "Gerar de novo" do resumo: refaz do zero com tudo o que já foi falado. */
+function regerarResumo(): void {
+  const { sessaoId, gerando } = useAoVivo.getState();
+  if (!sessaoId || gerando.resumo) return;
+  useAoVivo.setState((s) => ({ gerando: { ...s.gerando, resumo: true } }));
+  api
+    .post<AoVivo>(`/sessoes/${sessaoId}/ao-vivo/resumo/regerar`)
+    .then((d) => {
+      if (useAoVivo.getState().sessaoId === sessaoId) useAoVivo.setState({ dados: d });
+    })
+    .catch(() => undefined)
+    .finally(() => useAoVivo.setState((s) => ({ gerando: { ...s.gerando, resumo: false } })));
 }
 
 function carregar(sessaoId: string): void {
@@ -62,6 +77,7 @@ export function useLigarAoVivo(): void {
         dados: {
           ...dados,
           resumo: e.resumo ?? dados.resumo,
+          tom: e.tom ?? dados.tom,
           insights: e.insight ? [...dados.insights, e.insight] : dados.insights,
         },
       }));
@@ -119,6 +135,11 @@ export function AbaResumo() {
     <div className="corpo-aba">
       <div className="topo-aba">
         <span className="t2">{resumo ? `Atualizado ${haQuanto(agora - resumo.em)}` : 'Começa quando você abre esta aba e depois se atualiza sozinho.'}</span>
+        {resumo && ligado && (
+          <button type="button" className="icone regerar" data-dica="Gerar o resumo de novo" disabled={gerando} onClick={regerarResumo}>
+            <ArrowClockwise size={14} className={gerando ? 'girando' : undefined} />
+          </button>
+        )}
         <Chave ligada={ligado} rotulo="Resumo ao vivo" aoMudar={(v) => void salvar({ resumoAoVivo: v })} />
       </div>
       {gerando && !resumo ? (
@@ -143,6 +164,8 @@ const ICONES: Record<TipoInsight, ReactElement> = {
   dica: <Lightbulb size={13} weight="bold" />,
 };
 const NOMES: Record<TipoInsight, string> = { oportunidade: 'Oportunidade', risco: 'Atenção', voz: 'Sua voz', dica: 'Dica' };
+
+const CLIMAS: Record<ClimaConversa, string> = { positivo: 'positivo', neutro: 'neutro', tenso: 'tenso', negativo: 'negativo' };
 
 export function AbaInsights() {
   const dados = useAoVivo((s) => s.dados);
@@ -174,6 +197,23 @@ export function AbaInsights() {
             <span className="rot">Seu ritmo</span>
             <span className="val">{m.seuRitmo ? `${Math.round(m.seuRitmo)} palavras/min` : '—'}</span>
           </div>
+        </div>
+      )}
+      {dados.tom && (
+        <div className={`tom-conversa tom-${dados.tom.clima}`}>
+          <span className="tipo">
+            <Smiley size={13} weight="bold" /> Tom: {CLIMAS[dados.tom.clima]}
+          </span>
+          {dados.tom.outros && (
+            <span className="texto">
+              <span className="t2">Outros:</span> {dados.tom.outros}
+            </span>
+          )}
+          {dados.tom.voce && (
+            <span className="texto">
+              <span className="t2">Você:</span> {dados.tom.voce}
+            </span>
+          )}
         </div>
       )}
       {gerando && !lista.length ? (

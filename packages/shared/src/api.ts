@@ -157,12 +157,26 @@ export const MetricasVoz = z.object({
 });
 export type MetricasVoz = z.infer<typeof MetricasVoz>;
 
+/** Tom da conversa, lido do texto (escolha de palavras), não da entonação. */
+export const ClimaConversa = z.enum(['positivo', 'neutro', 'tenso', 'negativo']);
+export type ClimaConversa = z.infer<typeof ClimaConversa>;
+export const TomConversa = z.object({
+  clima: ClimaConversa,
+  /** Como os outros parecem estar (poucas palavras). */
+  outros: z.string(),
+  /** Como você parece estar. */
+  voce: z.string(),
+  em: z.number(),
+});
+export type TomConversa = z.infer<typeof TomConversa>;
+
 export const ParteAoVivo = z.enum(['resumo', 'insights']);
 export type ParteAoVivo = z.infer<typeof ParteAoVivo>;
 
 export const AoVivo = z.object({
   resumo: ResumoAoVivo.nullable(),
   insights: z.array(Insight),
+  tom: TomConversa.nullable(),
   metricas: MetricasVoz,
   /** Cada análise só começa quando a pessoa abre a aba pela primeira vez na sessão. */
   ativo: z.object({ resumo: z.boolean(), insights: z.boolean() }),
@@ -335,7 +349,13 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   /** O app detectou uma pergunta para o usuário e já começou a responder (chat.* com este respostaId). */
   z.object({ tipo: z.literal('sugestao.nova'), sessaoId: z.string(), respostaId: z.string(), pergunta: z.string() }),
   /** Análise ao vivo da sessão: resumo novo e/ou insight novo. */
-  z.object({ tipo: z.literal('sessao.aoVivo'), sessaoId: z.string(), resumo: ResumoAoVivo.optional(), insight: Insight.optional() }),
+  z.object({
+    tipo: z.literal('sessao.aoVivo'),
+    sessaoId: z.string(),
+    resumo: ResumoAoVivo.optional(),
+    insight: Insight.optional(),
+    tom: TomConversa.optional(),
+  }),
   /** A lista de agentes mudou (criado, editado, apagado). */
   z.object({ tipo: z.literal('agentes'), agentes: z.array(Agente) }),
   z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),

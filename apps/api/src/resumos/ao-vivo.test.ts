@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lerInsights, metricasVoz } from './ao-vivo.service';
+import { lerInsights, lerTom, metricasVoz } from './ao-vivo.service';
 
 describe('lerInsights', () => {
   it('lê JSON dentro de cerca de código', () => {
@@ -21,5 +21,17 @@ describe('metricasVoz', () => {
     expect(m.suaParte).toBeCloseTo(0.75);
     expect(m.seuRitmo).toBeCloseTo(200);
     expect(m.suaMaiorFala).toBe(30);
+  });
+});
+
+describe('tom junto dos insights', () => {
+  const bruto = '{"tom":{"clima":"tenso","outros":"hesitante com o preço","voce":"defensivo"},"insights":[{"tipo":"risco","texto":"Ele duvidou do prazo."}]}';
+  it('lê o objeto novo', () => {
+    expect(lerInsights(bruto)).toEqual([{ tipo: 'risco', texto: 'Ele duvidou do prazo.' }]);
+    expect(lerTom(bruto)).toEqual({ clima: 'tenso', outros: 'hesitante com o preço', voce: 'defensivo' });
+  });
+  it('ignora tom estranho ou ausente', () => {
+    expect(lerTom('[{"tipo":"dica","texto":"Pergunte o prazo."}]')).toBeNull();
+    expect(lerTom('{"tom":{"clima":"feliz"}}')).toBeNull();
   });
 });
