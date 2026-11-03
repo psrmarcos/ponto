@@ -163,6 +163,27 @@ export const GastoPorOrigem = z.object({
 });
 export type GastoPorOrigem = z.infer<typeof GastoPorOrigem>;
 
+// ---------- Estatísticas (Início da Home) ----------
+
+export const Estatisticas = z.object({
+  sessoes: z.object({ total: z.number().int(), noMes: z.number().int(), naSemana: z.number().int() }),
+  /** Tempo de call gravado (do início à última fala de cada sessão). */
+  horasGravadas: z.object({ total: z.number(), noMes: z.number() }),
+  falas: z.object({ total: z.number().int(), suaParte: z.number() }),
+  palavras: z.object({ suas: z.number().int(), outros: z.number().int() }),
+  custo: z.object({
+    mesUsd: z.number(),
+    totalUsd: z.number(),
+    mediaPorSessaoUsd: z.number(),
+    porOrigemMes: z.array(z.object({ origem: z.string(), custoUsd: z.number() })),
+  }),
+  perguntasAoChat: z.object({ total: z.number().int(), detectadas: z.number().int() }),
+  /** Últimos 14 dias, do mais antigo ao de hoje. */
+  porDia: z.array(z.object({ dia: z.string(), sessoes: z.number().int(), minutos: z.number(), custoUsd: z.number() })),
+  agentes: z.array(z.object({ agenteId: z.string(), sessoes: z.number().int() })),
+});
+export type Estatisticas = z.infer<typeof Estatisticas>;
+
 // ---------- Chat ----------
 
 export const LiberarGasto = z.object({ usd: z.number().positive().max(50) });

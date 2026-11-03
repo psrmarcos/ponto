@@ -7,6 +7,7 @@ import { Configuracoes } from './home/Configuracoes';
 import { Perfil } from './home/Perfil';
 import { Sessoes } from './home/Sessoes';
 import { Agentes } from './home/Agentes';
+import { Estatisticas } from './home/Estatisticas';
 
 type Secao = 'inicio' | 'sessoes' | 'agentes' | 'config' | 'perfil';
 
@@ -105,7 +106,6 @@ function saudacao(): string {
 
 function Inicio({ irPara }: { irPara: (s: Secao) => void }) {
   const nome = useDominio((s) => s.configuracoes?.nomeUsuario);
-  const uso = useDominio((s) => s.uso);
   const stealth = useStealth();
   const statusApi = useStatusApi();
   const temChave = useEstadoApp((s) => s.estado?.chavesConfiguradas.includes('openrouter') ?? false);
@@ -131,22 +131,8 @@ function Inicio({ irPara }: { irPara: (s: Secao) => void }) {
           </button>
         </div>
       )}
-      <div className="cartoes">
-        <div className="cartao">
-          <span className="rot">Custo de IA no mês</span>
-          <span className="val">US$ {(uso?.custoMesUsd ?? 0).toFixed(2)}</span>
-        </div>
-        <div className="cartao">
-          <span className="rot">Chamadas no mês</span>
-          <span className="val">{uso?.chamadasMes ?? 0}</span>
-        </div>
-        <div className="cartao">
-          <span className="rot">Tokens no mês</span>
-          <span className="val">{formatarNumero(uso?.tokensMes ?? 0)}</span>
-        </div>
-      </div>
+      <Estatisticas />
     </>
   );
 }
 
-const formatarNumero = (n: number) => new Intl.NumberFormat('pt-BR', { notation: 'compact' }).format(n);
