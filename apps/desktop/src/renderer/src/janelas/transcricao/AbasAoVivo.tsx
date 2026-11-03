@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { create } from 'zustand';
-import { Lightbulb, Microphone, Sparkle, TrendUp, Warning } from '@phosphor-icons/react';
-import type { AoVivo, Insight, TipoInsight } from '@ponto/shared';
+import { ChatText, CircleNotch, Lightbulb, ListBullets, Microphone, Sparkle, TrendUp, Warning } from '@phosphor-icons/react';
+import type { AoVivo, Insight, ParteAoVivo, TipoInsight } from '@ponto/shared';
 import { api } from '../../api/cliente';
 import { useDominio } from '../../estado/dominio';
 import { useTranscricao } from '../../estado/transcricao';
@@ -10,10 +10,33 @@ import { Markdown } from '../../ui/Markdown';
 
 export type AbaTranscricao = 'bruta' | 'resumo' | 'insights';
 
-const VAZIO: AoVivo = { resumo: null, insights: [], metricas: { suaParte: 0, seuRitmo: null, suaMaiorFala: 0 } };
+const VAZIO: AoVivo = {
+  resumo: null,
+  insights: [],
+  metricas: { suaParte: 0, seuRitmo: null, suaMaiorFala: 0 },
+  ativo: { resumo: false, insights: false },
+};
 
 /** Resumo, insights e métricas da sessão atual (ou da última). Vem da API e cresce pelo WebSocket. */
-const useAoVivo = create<{ sessaoId: string | null; dados: AoVivo }>(() => ({ sessaoId: null, dados: VAZIO }));
+const useAoVivo = create<{ sessaoId: string | null; dados: AoVivo; gerando: Record<ParteAoVivo, boolean> }>(() => ({
+  sessaoId: null,
+  dados: VAZIO,
+  gerando: { resumo: false, insights: false },
+}));
+
+/** Primeira vez que a aba abre na sessão: liga a análise e espera a primeira versão (com loading). */
+function ativar(parte: ParteAoVivo): void {
+  const { sessaoId, dados, gerando } = useAoVivo.getState();
+  if (!sessaoId || dados.ativo[parte] || gerando[parte]) return;
+  useAoVivo.setState((s) => ({ gerando: { ...s.gerando, [parte]: true } }));
+  api
+    .post<AoVivo>(`/sessoes/${sessaoId}/ao-vivo/${parte}`)
+    .then((d) => {
+      if (useAoVivo.getState().sessaoId === sessaoId) useAoVivo.setState({ dados: d });
+    })
+    .catch(() => undefined)
+    .finally(() => useAoVivo.setState((s) => ({ gerando: { ...s.gerando, [parte]: false } })));
+}
 
 function carregar(sessaoId: string): void {
   api
@@ -30,7 +53,7 @@ export function useLigarAoVivo(): void {
   const totalFalas = useTranscricao((s) => s.falas.length);
 
   useEffect(() => {
-    useAoVivo.setState({ sessaoId, dados: VAZIO });
+    useAoVivo.setState({ sessaoId, dados: VAZIO, gerando: { resumo: false, insights: false } });
     if (!sessaoId) return;
     const parar = api.quandoConectar(() => carregar(sessaoId));
     const pararEventos = api.ouvir((e) => {
@@ -60,13 +83,13 @@ export function SeletorAbas({ aba, mudar }: { aba: AbaTranscricao; mudar: (a: Ab
   return (
     <div className="abas abas-transcricao" role="tablist">
       <button type="button" role="tab" className="aba" aria-selected={aba === 'bruta'} onClick={() => mudar('bruta')}>
-        Transcrição
+        <ChatText size={13} /> Transcrição
       </button>
       <button type="button" role="tab" className="aba" aria-selected={aba === 'resumo'} onClick={() => mudar('resumo')}>
-        Resumo
+        <ListBullets size={13} /> Resumo
       </button>
       <button type="button" role="tab" className="aba" aria-selected={aba === 'insights'} onClick={() => mudar('insights')}>
-        Insights{novos > 0 && <span className="contador-aba">{novos}</span>}
+        <Lightbulb size={13} /> Insights{novos > 0 && <span className="contador-aba">{novos}</span>}
       </button>
     </div>
   );
@@ -84,21 +107,30 @@ function useInsightsNovos(aba: AbaTranscricao): number {
 
 export function AbaResumo() {
   const resumo = useAoVivo((s) => s.dados.resumo);
+  const sessaoId = useAoVivo((s) => s.sessaoId);
+  const gerando = useAoVivo((s) => s.gerando.resumo);
   const ligado = useDominio((s) => s.configuracoes?.resumoAoVivo ?? true);
   const salvar = useDominio((s) => s.salvarConfiguracoes);
   const agora = useAgora();
+  useEffect(() => {
+    if (ligado) ativar('resumo');
+  }, [ligado, sessaoId]);
   return (
     <div className="corpo-aba">
       <div className="topo-aba">
-        <span className="t2">{resumo ? `Atualizado ${haQuanto(agora - resumo.em)}` : 'Atualiza sozinho a cada minuto de conversa.'}</span>
+        <span className="t2">{resumo ? `Atualizado ${haQuanto(agora - resumo.em)}` : 'Começa quando você abre esta aba e depois se atualiza sozinho.'}</span>
         <Chave ligada={ligado} rotulo="Resumo ao vivo" aoMudar={(v) => void salvar({ resumoAoVivo: v })} />
       </div>
-      {resumo ? (
+      {gerando && !resumo ? (
+        <Carregando texto="Resumindo o que já foi falado…" />
+      ) : resumo ? (
         <div className="resumo-ao-vivo">
           <Markdown texto={resumo.texto} />
         </div>
       ) : (
-        <p className="vazio-aba">{ligado ? 'O resumo aparece depois de alguns trechos de conversa.' : 'Resumo ao vivo desligado.'}</p>
+        <p className="vazio-aba">
+          {!ligado ? 'Resumo ao vivo desligado.' : sessaoId ? 'O resumo aparece depois das primeiras falas.' : 'Comece uma transcrição para ver o resumo.'}
+        </p>
       )}
     </div>
   );
@@ -114,10 +146,15 @@ const NOMES: Record<TipoInsight, string> = { oportunidade: 'Oportunidade', risco
 
 export function AbaInsights() {
   const dados = useAoVivo((s) => s.dados);
+  const sessaoId = useAoVivo((s) => s.sessaoId);
+  const gerando = useAoVivo((s) => s.gerando.insights);
   const ligado = useDominio((s) => s.configuracoes?.insightsAoVivo ?? false);
   const salvar = useDominio((s) => s.salvarConfiguracoes);
   const m = dados.metricas;
   const lista: Insight[] = [...dados.insights].reverse();
+  useEffect(() => {
+    if (ligado) ativar('insights');
+  }, [ligado, sessaoId]);
   return (
     <div className="corpo-aba">
       <div className="topo-aba">
@@ -139,7 +176,9 @@ export function AbaInsights() {
           </div>
         </div>
       )}
-      {lista.length ? (
+      {gerando && !lista.length ? (
+        <Carregando texto="Lendo a conversa atrás de algo útil…" />
+      ) : lista.length ? (
         <div className="lista-insights">
           {lista.map((i) => (
             <div key={i.id} className={`insight insight-${i.tipo}`}>
@@ -156,6 +195,14 @@ export function AbaInsights() {
         </p>
       )}
     </div>
+  );
+}
+
+function Carregando({ texto }: { texto: string }) {
+  return (
+    <p className="vazio-aba carregando-aba">
+      <CircleNotch size={14} className="girando" /> {texto}
+    </p>
   );
 }
 

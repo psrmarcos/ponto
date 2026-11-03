@@ -620,3 +620,9 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .lista-origem .trilho { height: 6px; }
 .lista-origem .trilho span { display: block; height: 100%; border-radius: 999px; background: #8FB0FF; }
 .lista-origem .num { font-variant-numeric: tabular-nums; color: var(--texto-3); }
+.abas-transcricao .aba { display: inline-flex; align-items: center; gap: 5px; }
+.carregando-aba { display: flex; align-items: center; gap: 6px; }
+@keyframes girar { to { transform: rotate(360deg); } }
+.girando { animation: girar 0.9s linear infinite; }
+/* Transcrição e Tela um pouco mais transparentes que o chat. */
+body[data-janela="transcricao"] .painel, body[data-janela="tela"] .painel { background: rgba(20, 20, 24, 0.86); }

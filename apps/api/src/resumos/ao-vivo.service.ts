@@ -1,5 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import type { AoVivo, Fala, Insight, MetricasVoz, ResumoAoVivo, TipoInsight } from '@ponto/shared';
+import type { AoVivo, Fala, Insight, MetricasVoz, ParteAoVivo, ResumoAoVivo, TipoInsight } from '@ponto/shared';
 import { novoId } from '../comum/id';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 import { EventosService } from '../eventos/eventos.service';
@@ -31,6 +31,8 @@ interface Estado {
   avisosVoz: Set<string>;
   rodando: boolean;
   timer: NodeJS.Timeout | null;
+  /** A aba já foi aberta nesta sessão: só então a análise roda (e segue sozinha depois). */
+  ativo: Record<ParteAoVivo, boolean>;
 }
 
 const PROMPT_RESUMO =
@@ -50,8 +52,9 @@ Na dúvida, devolva []. Nada óbvio, genérico ou repetido dos insights já dado
 
 /**
  * Análise ao vivo da call para as abas Resumo e Insights da Transcrição. Roda em
- * segundo plano com o modelo rápido, em intervalos, só quando entrou fala nova;
- * cada aba tem seu interruptor nas configurações.
+ * segundo plano com o modelo rápido, em intervalos, só quando entrou fala nova.
+ * Cada análise só começa quando a pessoa abre a aba pela primeira vez na sessão
+ * (e tem seu interruptor nas configurações).
  */
 @Injectable()
 export class AoVivoService implements OnModuleInit {
@@ -71,7 +74,30 @@ export class AoVivoService implements OnModuleInit {
 
   async obter(sessaoId: string): Promise<AoVivo> {
     const e = this.estado(sessaoId);
-    return { resumo: e.resumo, insights: e.insights, metricas: metricasVoz(await this.sessoes.falas(sessaoId)) };
+    return { resumo: e.resumo, insights: e.insights, metricas: metricasVoz(await this.sessoes.falas(sessaoId)), ativo: { ...e.ativo } };
+  }
+
+  /**
+   * A pessoa abriu a aba: liga aquela análise nesta sessão e gera a primeira
+   * versão na hora (com o que já foi falado). Responde quando ela fica pronta.
+   */
+  async ativar(sessaoId: string, parte: ParteAoVivo): Promise<AoVivo> {
+    const e = this.estado(sessaoId);
+    if (!e.ativo[parte]) {
+      e.ativo[parte] = true;
+      const config = await this.config.obter();
+      const falas = await this.sessoes.falas(sessaoId);
+      try {
+        if (parte === 'resumo' && config.resumoAoVivo) await this.atualizarResumo(sessaoId, e, falas, 1);
+        if (parte === 'insights' && config.insightsAoVivo) {
+          this.avisosDeVoz(sessaoId, e, falas);
+          await this.buscarInsights(sessaoId, e, falas, 1);
+        }
+      } catch (err) {
+        this.log.warn(`primeira análise falhou: ${(err as Error).message}`);
+      }
+    }
+    return this.obter(sessaoId);
   }
 
   private estado(sessaoId: string): Estado {
@@ -91,6 +117,7 @@ export class AoVivoService implements OnModuleInit {
         avisosVoz: new Set(),
         rodando: false,
         timer: null,
+        ativo: { resumo: false, insights: false },
       };
       this.estados.set(sessaoId, e);
     }
@@ -113,10 +140,10 @@ export class AoVivoService implements OnModuleInit {
     try {
       const config = await this.config.obter();
       const falas = await this.sessoes.falas(sessaoId);
-      this.avisosDeVoz(sessaoId, e, falas);
+      if (e.ativo.insights) this.avisosDeVoz(sessaoId, e, falas);
       const agora = Date.now();
-      if (config.resumoAoVivo && agora - e.ultimoResumoEm >= INTERVALO_RESUMO_MS) await this.atualizarResumo(sessaoId, e, falas);
-      if (config.insightsAoVivo && agora - e.ultimoInsightsEm >= INTERVALO_INSIGHTS_MS) await this.buscarInsights(sessaoId, e, falas);
+      if (e.ativo.resumo && config.resumoAoVivo && agora - e.ultimoResumoEm >= INTERVALO_RESUMO_MS) await this.atualizarResumo(sessaoId, e, falas);
+      if (e.ativo.insights && config.insightsAoVivo && agora - e.ultimoInsightsEm >= INTERVALO_INSIGHTS_MS) await this.buscarInsights(sessaoId, e, falas);
     } catch (err) {
       this.log.warn(`análise ao vivo falhou: ${(err as Error).message}`);
     } finally {
@@ -138,9 +165,9 @@ export class AoVivoService implements OnModuleInit {
     if (novas.length) void this.rodar(sessaoId);
   }
 
-  private async atualizarResumo(sessaoId: string, e: Estado, falas: Fala[]): Promise<void> {
+  private async atualizarResumo(sessaoId: string, e: Estado, falas: Fala[], minimo = MIN_CHARS_RESUMO): Promise<void> {
     const novas = falas.filter((f) => f.inicioMs > e.resumoAteMs);
-    if (tamanho(novas) < MIN_CHARS_RESUMO) return;
+    if (!novas.length || tamanho(novas) < minimo) return;
     const versao = e.versao;
     let trecho = await this.sessoes.formatar(novas);
     if (trecho.length > 12_000) trecho = `(…)\n${trecho.slice(-12_000)}`;
@@ -164,9 +191,9 @@ export class AoVivoService implements OnModuleInit {
     this.eventos.emitir({ tipo: 'sessao.aoVivo', sessaoId, resumo: e.resumo });
   }
 
-  private async buscarInsights(sessaoId: string, e: Estado, falas: Fala[]): Promise<void> {
+  private async buscarInsights(sessaoId: string, e: Estado, falas: Fala[], minimo = MIN_CHARS_INSIGHTS): Promise<void> {
     const novas = falas.filter((f) => f.inicioMs > e.insightsAteMs);
-    if (tamanho(novas) < MIN_CHARS_INSIGHTS) return;
+    if (!novas.length || tamanho(novas) < minimo) return;
     const versao = e.versao;
     // Contexto: um pouco antes do que é novo, para o insight fazer sentido.
     const inicio = Math.max(0, falas.indexOf(novas[0]!) - 6);

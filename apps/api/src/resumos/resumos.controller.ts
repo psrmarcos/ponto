@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post } from '@nestjs/common';
-import { EdicaoSessao, type AoVivo, type GastoPorOrigem, type MensagemSalva, type SessaoNaLista } from '@ponto/shared';
+import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { EdicaoSessao, ParteAoVivo, type AoVivo, type GastoPorOrigem, type MensagemSalva, type SessaoNaLista } from '@ponto/shared';
 import { ZodPipe } from '../comum/zod.pipe';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 import { SessoesService } from '../sessoes/sessoes.service';
@@ -43,6 +43,14 @@ export class ResumosController {
   @Get(':id/ao-vivo')
   analiseAoVivo(@Param('id') id: string): Promise<AoVivo> {
     return this.aoVivo.obter(id);
+  }
+
+  /** Abriu a aba Resumo ou Insights: começa aquela análise e devolve a primeira versão. */
+  @Post(':id/ao-vivo/:parte')
+  ativarAoVivo(@Param('id') id: string, @Param('parte') parte: string): Promise<AoVivo> {
+    const p = ParteAoVivo.safeParse(parte);
+    if (!p.success) throw new BadRequestException({ mensagem: 'Parte inválida.' });
+    return this.aoVivo.ativar(id, p.data);
   }
 
   @Get(':id/gastos')

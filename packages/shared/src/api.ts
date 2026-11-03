@@ -114,7 +114,16 @@ export const MetricasVoz = z.object({
 });
 export type MetricasVoz = z.infer<typeof MetricasVoz>;
 
-export const AoVivo = z.object({ resumo: ResumoAoVivo.nullable(), insights: z.array(Insight), metricas: MetricasVoz });
+export const ParteAoVivo = z.enum(['resumo', 'insights']);
+export type ParteAoVivo = z.infer<typeof ParteAoVivo>;
+
+export const AoVivo = z.object({
+  resumo: ResumoAoVivo.nullable(),
+  insights: z.array(Insight),
+  metricas: MetricasVoz,
+  /** Cada análise só começa quando a pessoa abre a aba pela primeira vez na sessão. */
+  ativo: z.object({ resumo: z.boolean(), insights: z.boolean() }),
+});
 export type AoVivo = z.infer<typeof AoVivo>;
 
 // ---------- Agentes ----------
