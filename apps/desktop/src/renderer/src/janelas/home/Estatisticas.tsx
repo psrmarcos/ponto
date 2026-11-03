@@ -12,6 +12,7 @@ const NOMES_ORIGEM: Record<string, string> = {
   resumo_ao_vivo: 'Resumo ao vivo',
   insights: 'Insights',
   compressao_chat: 'Comprimir conversa',
+  traducao: 'Tradução',
 };
 
 /** Números do Início: sessões, horas, sua parte da fala, custos e os últimos 14 dias. */

@@ -51,6 +51,7 @@ export function Agregador() {
   // Pergunta detectada na call: o chat aparece com a resposta já sendo escrita.
   useEffect(() => api.ouvir((e) => e.tipo === 'sugestao.nova' && setChatVisivel(true)), []);
   useEffect(() => window.ponto.ouvir('tela.lida', () => setChatVisivel(true)), []);
+  useEffect(() => window.ponto.ouvir('selecao.lida', () => setChatVisivel(true)), []);
 
   return (
     <div className="palco">

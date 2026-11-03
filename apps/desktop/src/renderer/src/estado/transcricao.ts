@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanalAudio, Fala, NiveisAudio } from '@ponto/shared';
+import type { CanalAudio, Fala, NiveisAudio, TraducaoFala } from '@ponto/shared';
 import { api } from '../api/cliente';
 import { useEstadoApp } from './app';
 
@@ -14,6 +14,8 @@ interface Transcricao {
   niveis: NiveisAudio;
   /** Fala em andamento por canal (streaming): texto provisório que ainda pode mudar. */
   parciais: Partial<Record<CanalAudio, { texto: string; inicioMs: number }>>;
+  /** Tradução de cada fala (pelo id), quando a tradução está ligada. */
+  traducoes: Record<string, TraducaoFala>;
   /** Limpeza pedida e ainda desfazível: as falas só somem do banco quando o prazo acaba. */
   desfazivel: { falas: Fala[]; ateMs: number } | null;
   limpar: () => void;
@@ -30,6 +32,7 @@ export const useTranscricao = create<Transcricao>((set, get) => ({
   aviso: null,
   niveis: { microfone: 0, sistema: 0 },
   parciais: {},
+  traducoes: {},
   desfazivel: null,
   limpar: () => {
     const { sessaoId, falas, desfazivel } = get();
@@ -86,6 +89,14 @@ export function iniciarTranscricao(): void {
         useTranscricao.setState((s) => ({ falas: lista.filter((f) => f.inicioMs > limite).reduce(inserir, s.falas) }));
       })
       .catch(() => {});
+  const carregarTraducoes = (id: string) =>
+    void api
+      .get<TraducaoFala[]>(`/sessoes/${id}/traducoes`)
+      .then((lista) => {
+        if (useTranscricao.getState().sessaoId !== id || !lista.length) return;
+        useTranscricao.setState((s) => ({ traducoes: { ...Object.fromEntries(lista.map((t) => [t.falaId, t])), ...s.traducoes } }));
+      })
+      .catch(() => {});
 
   let ultimoErro: string | null = null;
   // Sessão nova: limpa a lista. Sessão parada: mantém o que foi dito, para ler depois.
@@ -93,8 +104,9 @@ export function iniciarTranscricao(): void {
     const id = s.estado?.captura.sessaoId ?? null;
     if (id && id !== useTranscricao.getState().sessaoId) {
       if (useTranscricao.getState().desfazivel) confirmarLimpeza();
-      useTranscricao.setState({ sessaoId: id, falas: [], parciais: {}, aviso: null });
+      useTranscricao.setState({ sessaoId: id, falas: [], parciais: {}, traducoes: {}, aviso: null });
       carregar(id);
+      carregarTraducoes(id);
     }
     const erro = s.estado?.captura.erro;
     if (erro && erro !== ultimoErro) mostrarAviso(erro);
@@ -102,11 +114,17 @@ export function iniciarTranscricao(): void {
   });
   api.quandoConectar(() => {
     const id = useTranscricao.getState().sessaoId;
-    if (id) carregar(id);
+    if (id) {
+      carregar(id);
+      carregarTraducoes(id);
+    }
   });
   api.ouvir((e) => {
     if (e.tipo === 'transcricao.fala' && e.fala.sessaoId === useTranscricao.getState().sessaoId) {
       useTranscricao.setState((s) => ({ falas: inserir(s.falas, e.fala) }));
+    }
+    if (e.tipo === 'transcricao.traducao' && e.traducao.sessaoId === useTranscricao.getState().sessaoId) {
+      useTranscricao.setState((s) => ({ traducoes: { ...s.traducoes, [e.traducao.falaId]: e.traducao } }));
     }
     if (e.tipo === 'transcricao.parcial' && e.sessaoId === useTranscricao.getState().sessaoId) {
       useTranscricao.setState((s) => {

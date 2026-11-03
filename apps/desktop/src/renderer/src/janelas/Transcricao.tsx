@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowCounterClockwise, Broom, Microphone, Pause, Play, Record, SpeakerHigh, Stop, Waveform } from '@phosphor-icons/react';
-import type { Configuracoes, Fala } from '@ponto/shared';
+import { ArrowDown, ArrowCounterClockwise, Broom, CheckCircle, Microphone, Pause, Play, Record, SpeakerHigh, Stop, Translate, Waveform } from '@phosphor-icons/react';
+import type { Configuracoes, Fala, TraducaoFala } from '@ponto/shared';
 import { useCaptura, useEstadoApp } from '../estado/app';
 import { api } from '../api/cliente';
 import { AbaInsights, AbaResumo, SeletorAbas, useLigarAoVivo, type AbaTranscricao } from './transcricao/AbasAoVivo';
 import { useDominio } from '../estado/dominio';
 import { useTranscricao } from '../estado/transcricao';
 import { Cabecalho } from '../ui/Cabecalho';
-import { IDIOMAS } from '../ui/idiomas';
+import { Chave } from '../ui/Chave';
+import { IDIOMAS, IDIOMAS_DESTINO } from '../ui/idiomas';
+import { Menu } from '../ui/Menu';
 import { Seletor } from '../ui/Seletor';
 
 const comandar = (acao: 'iniciar' | 'pausar' | 'retomar' | 'parar') => void window.ponto.invocar('captura.comandar', { acao });
@@ -100,6 +102,7 @@ function ListaFalas({ falas, gravando, parada }: { falas: Fala[]; gravando: bool
   const corpo = useRef<HTMLDivElement>(null);
   const [colado, setColado] = useState(true);
   const parciais = useTranscricao((s) => s.parciais);
+  const traducoes = useTranscricao((s) => s.traducoes);
   const emAndamento = (Object.entries(parciais) as Array<[Fala['canal'], { texto: string; inicioMs: number }]>).sort(
     (a, b) => a[1].inicioMs - b[1].inicioMs,
   );
@@ -108,7 +111,7 @@ function ListaFalas({ falas, gravando, parada }: { falas: Fala[]; gravando: bool
   useLayoutEffect(() => {
     const el = corpo.current;
     if (el && colado) el.scrollTop = el.scrollHeight;
-  }, [falas, parciais, colado]);
+  }, [falas, parciais, traducoes, colado]);
 
   if (!falas.length && !emAndamento.length) {
     return (
@@ -149,7 +152,10 @@ function ListaFalas({ falas, gravando, parada }: { falas: Fala[]; gravando: bool
             <span className="quem">
               {quem(g[0]!, nome)} <span className="hora">{relogio(g[0]!.inicioMs)}</span>
             </span>
-            <span className="txt">{g.map((f) => f.texto).join(' ')}</span>
+            <span className="txt">
+              {g.map((f) => f.texto).join(' ')}
+              <Traducoes falas={g} traducoes={traducoes} />
+            </span>
           </div>
         ))}
         {emAndamento.map(([canal, p]) => (
@@ -167,6 +173,97 @@ function ListaFalas({ falas, gravando, parada }: { falas: Fala[]; gravando: bool
         </button>
       )}
     </div>
+  );
+}
+
+/** Tradução (e correção, no modo aprendizado) embaixo do texto original. */
+function Traducoes({ falas, traducoes }: { falas: Fala[]; traducoes: Record<string, TraducaoFala> }) {
+  const ts = falas.map((f) => traducoes[f.id]).filter((t): t is TraducaoFala => !!t);
+  const texto = ts.map((t) => t.texto).filter(Boolean).join(' ');
+  const correcoes = ts.map((t) => t.correcao).filter(Boolean);
+  if (!texto && !correcoes.length) return null;
+  return (
+    <>
+      {texto && (
+        <span className="traducao">
+          <Translate size={12} /> {texto}
+        </span>
+      )}
+      {correcoes.map((c, i) => (
+        <span key={i} className="correcao">
+          <CheckCircle size={12} /> Melhor dizer: {c}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** Liga a tradução e escolhe para onde, de quem e o modo aprendizado. */
+function MenuTraducao() {
+  const config = useDominio((s) => s.configuracoes);
+  const salvar = useDominio((s) => s.salvarConfiguracoes);
+  if (!config) return null;
+  return (
+    <Menu
+      className="menu-traducao"
+      abrirPara="cima"
+      botao={({ aberto, alternar }) => (
+        <button
+          type="button"
+          className={`icone${config.traducaoLigada ? ' ativo' : ''}`}
+          aria-label="Tradução"
+          aria-expanded={aberto}
+          aria-pressed={config.traducaoLigada}
+          title="Tradução em tempo real"
+          onClick={alternar}
+        >
+          <Translate size={15} />
+        </button>
+      )}
+    >
+      {() => (
+        <div className="painel-traducao">
+          <div className="menu-titulo">Tradução em tempo real</div>
+          <div className="linha-ajuste">
+            <span>Traduzir as falas</span>
+            <Chave ligada={config.traducaoLigada} rotulo="Traduzir as falas" aoMudar={(v) => void salvar({ traducaoLigada: v })} />
+          </div>
+          <div className="linha-ajuste">
+            <span>Para</span>
+            <Seletor
+              rotulo="Traduzir para"
+              alinhar="direita"
+              valor={config.traducaoDestino}
+              opcoes={IDIOMAS_DESTINO}
+              aoMudar={(v) => void salvar({ traducaoDestino: v })}
+            />
+          </div>
+          <div className="linha-ajuste">
+            <span>De quem</span>
+            <Seletor
+              rotulo="De quem traduzir"
+              alinhar="direita"
+              valor={config.traducaoDe}
+              opcoes={[
+                { valor: 'outros', rotulo: 'Só os outros' },
+                { valor: 'eu', rotulo: 'Só eu' },
+                { valor: 'todos', rotulo: 'Todos' },
+              ]}
+              aoMudar={(v) => void salvar({ traducaoDe: v })}
+            />
+          </div>
+          <div className="linha-ajuste">
+            <span>
+              Modo aprendizado
+              <br />
+              <span className="sub">Corrige as suas frases no idioma da conversa</span>
+            </span>
+            <Chave ligada={config.traducaoAprendizado} rotulo="Modo aprendizado" aoMudar={(v) => void salvar({ traducaoAprendizado: v })} />
+          </div>
+          <p className="vazio-menu">Cada fala vira uma chamada curta ao modelo rápido. Falas que já estão no idioma escolhido não são traduzidas.</p>
+        </div>
+      )}
+    </Menu>
   );
 }
 
@@ -226,6 +323,7 @@ function Rodape() {
       </button>
       <BotaoLimpar />
       <Seletor rotulo="Idioma da conversa" valor={idioma} opcoes={IDIOMAS} abrirPara="cima" aoMudar={(v) => void salvar({ idioma: v })} />
+      <MenuTraducao />
       <div className="espaco" />
     </div>
   );

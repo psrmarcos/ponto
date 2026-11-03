@@ -10,6 +10,7 @@ export const TEXTO_DOS_ATALHOS: Record<NonNullable<PedidoChat['atalho']>, string
   assist: 'Com base no contexto, me ajude com o que for mais útil agora.',
   oQueDizer: 'O que eu devo dizer agora? Responda à última pergunta que me fizeram, com a fala pronta.',
   followUp: 'Sugira 3 perguntas de follow-up curtas que eu posso fazer agora.',
+  selecao: 'Selecionei este texto agora. Explique o que importa nele para a conversa; se for uma pergunta, exercício ou código, resolva.',
   tela: 'Esta é a minha tela agora. Diga o que nela importa para a conversa; se houver uma pergunta, exercício ou código, resolva.',
 };
 

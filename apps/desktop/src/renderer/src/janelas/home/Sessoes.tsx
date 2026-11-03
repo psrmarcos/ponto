@@ -227,6 +227,7 @@ const NOMES_ORIGEM: Record<string, string> = {
   resumo_ao_vivo: 'Resumo ao vivo',
   insights: 'Insights ao vivo',
   compressao_chat: 'Comprimir conversa do chat',
+  traducao: 'Tradução',
 };
 
 function Gastos({ sessaoId, total }: { sessaoId: string; total: number }) {

@@ -14,6 +14,7 @@ const ROTULOS_ATALHO: Record<AcaoAtalho, string> = {
   alternarTela: 'Painel da tela',
   alternarHome: 'Abrir a Home',
   lerTela: 'Ler a tela agora',
+  perguntarSelecao: 'Perguntar sobre o texto selecionado',
   alternarCaptura: 'Gravar / pausar a transcrição',
   sair: 'Fechar o app',
 };

@@ -11,6 +11,7 @@ export const AcaoAtalho = z.enum([
   'alternarTela',
   'alternarHome',
   'lerTela',
+  'perguntarSelecao',
   'alternarCaptura',
   'sair',
 ]);
@@ -23,6 +24,7 @@ export const ATALHOS_PADRAO: Record<AcaoAtalho, string> = {
   alternarTela: 'CommandOrControl+Shift+E',
   alternarHome: 'CommandOrControl+Shift+O',
   lerTela: 'CommandOrControl+Shift+S',
+  perguntarSelecao: 'CommandOrControl+Shift+Y',
   alternarCaptura: 'CommandOrControl+Shift+G',
   sair: 'CommandOrControl+Shift+Q',
 };

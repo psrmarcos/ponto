@@ -105,6 +105,7 @@ function rotuloAtalho(a: PedidoChat['atalho']): string {
   if (a === 'oQueDizer') return 'O que devo dizer?';
   if (a === 'followUp') return 'Perguntas de follow-up';
   if (a === 'tela') return 'Ler a tela';
+  if (a === 'selecao') return 'Texto selecionado';
   return '(imagem)';
 }
 
@@ -118,6 +119,18 @@ export function iniciarChat(): void {
     const chat = useChat.getState();
     chat.anexar({ nome: 'Tela', dataUrl });
     void chat.enviar('', 'tela');
+  });
+
+  // Atalho do texto selecionado: manda a seleção com o pedido de explicar/responder.
+  window.ponto.ouvir('selecao.lida', ({ texto }) => {
+    if (!texto) {
+      const id = novoId();
+      useChat.setState((s) => ({
+        mensagens: [...s.mensagens, { id, papel: 'ia', texto: 'Não achei texto selecionado. Selecione um trecho e aperte o atalho de novo.', estado: 'erro' }],
+      }));
+      return;
+    }
+    void useChat.getState().enviar(texto, 'selecao');
   });
 
   api.ouvir((e) => {

@@ -5,6 +5,40 @@ import { CanalAudio, Fala, IdProvedorStt, INFO_PROVEDORES_STT } from './transcri
 export const CABECALHO_TOKEN = 'x-ponto-token';
 export const PORTA_API_PADRAO = 3456;
 
+// ---------- Idiomas ----------
+
+export const Idioma = z.enum([
+  'auto', 'pt-BR', 'pt-PT', 'en', 'es', 'fr', 'de', 'it', 'nl', 'ja', 'ko', 'zh', 'ru', 'hi', 'tr', 'pl', 'sv', 'da', 'no', 'fi', 'uk', 'id', 'vi',
+]);
+export type Idioma = z.infer<typeof Idioma>;
+
+/** Nome de cada idioma no próprio idioma (como a pessoa procura na lista). */
+export const NOMES_IDIOMA: Record<Idioma, string> = {
+  auto: 'Detectar idioma',
+  'pt-BR': 'Português (Brasil)',
+  'pt-PT': 'Português (Portugal)',
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  de: 'Deutsch',
+  it: 'Italiano',
+  nl: 'Nederlands',
+  ja: '日本語',
+  ko: '한국어',
+  zh: '中文',
+  ru: 'Русский',
+  hi: 'हिन्दी',
+  tr: 'Türkçe',
+  pl: 'Polski',
+  sv: 'Svenska',
+  da: 'Dansk',
+  no: 'Norsk',
+  fi: 'Suomi',
+  uk: 'Українська',
+  id: 'Bahasa Indonesia',
+  vi: 'Tiếng Việt',
+};
+
 // ---------- IA ----------
 
 /** Provedores de IA. Só o OpenRouter está implementado; os outros entram pela mesma interface. */
@@ -56,13 +90,18 @@ export const Configuracoes = z.object({
   /** Insights na aba Insights da Transcrição (só os que valem a pena). */
   insightsAoVivo: z.boolean(),
   webPorPadrao: z.boolean(),
-  idioma: z.enum([
-    'auto', 'pt-BR', 'pt-PT', 'en', 'es', 'fr', 'de', 'it', 'nl', 'ja', 'ko', 'zh', 'ru', 'hi', 'tr', 'pl', 'sv', 'da', 'no', 'fi', 'uk', 'id', 'vi',
-  ]),
+  idioma: Idioma,
   /** Quem transcreve o áudio. */
   provedorStt: IdProvedorStt,
   /** Modelo de transcrição no provedor escolhido. */
   modeloStt: z.string().min(1),
+  /** Tradução em tempo real das falas na Transcrição. */
+  traducaoLigada: z.boolean(),
+  traducaoDestino: Idioma.exclude(['auto']),
+  /** De quem traduzir: só os outros, só você ou todos. */
+  traducaoDe: z.enum(['outros', 'eu', 'todos']),
+  /** Modo aprendizado: além de traduzir, corrige as suas frases no idioma da conversa. */
+  traducaoAprendizado: z.boolean(),
   /** Deepgram: transcreve em streaming (o texto aparece enquanto a pessoa fala). */
   sttStreaming: z.boolean(),
   /** Teto de gasto por sessão em US$. 0 = sem teto. */
@@ -88,6 +127,10 @@ export const CONFIGURACOES_PADRAO: Configuracoes = {
   provedorStt: 'openrouter',
   modeloStt: INFO_PROVEDORES_STT.openrouter.modeloPadrao,
   sttStreaming: true,
+  traducaoLigada: false,
+  traducaoDestino: 'pt-BR',
+  traducaoDe: 'outros',
+  traducaoAprendizado: false,
   tetoSessaoUsd: 1,
   agenteAtivo: 'geral',
 };
@@ -172,6 +215,18 @@ export const GastoPorOrigem = z.object({
 });
 export type GastoPorOrigem = z.infer<typeof GastoPorOrigem>;
 
+// ---------- Tradução ----------
+
+export const TraducaoFala = z.object({
+  sessaoId: z.string(),
+  falaId: z.string(),
+  /** null quando a fala já estava no idioma de destino. */
+  texto: z.string().nullable(),
+  /** Modo aprendizado, só nas suas falas: como dizer melhor. */
+  correcao: z.string().nullable(),
+});
+export type TraducaoFala = z.infer<typeof TraducaoFala>;
+
 // ---------- Estatísticas (Início da Home) ----------
 
 export const Estatisticas = z.object({
@@ -224,7 +279,7 @@ export const PedidoChat = z.object({
   respostaId: z.string().uuid(),
   texto: z.string().max(8000),
   /** Atalho clicado (Assist, O que devo dizer?, Perguntas de follow-up). */
-  atalho: z.enum(['assist', 'oQueDizer', 'followUp', 'tela']).nullable(),
+  atalho: z.enum(['assist', 'oQueDizer', 'followUp', 'tela', 'selecao']).nullable(),
   agenteId: z.string(),
   web: z.boolean(),
   raciocinio: z.boolean(),
@@ -265,6 +320,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('configuracoes'), configuracoes: Configuracoes }),
   z.object({ tipo: z.literal('uso'), resumo: ResumoUso }),
   z.object({ tipo: z.literal('transcricao.fala'), fala: Fala }),
+  /** Tradução de uma fala (e, no modo aprendizado, a correção da sua frase). */
+  z.object({ tipo: z.literal('transcricao.traducao'), traducao: TraducaoFala }),
   /** Texto provisório da fala em andamento (streaming). Texto vazio: a fala terminou ou foi descartada. */
   z.object({
     tipo: z.literal('transcricao.parcial'),

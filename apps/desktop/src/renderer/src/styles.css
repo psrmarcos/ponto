@@ -626,3 +626,14 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .girando { animation: girar 0.9s linear infinite; }
 /* Transcrição e Tela quase sólidas: o fundo não atrapalha a leitura. */
 body[data-janela="transcricao"] .painel, body[data-janela="tela"] .painel { background: rgba(18, 18, 22, 0.985); }
+
+/* ---------- Tradução na Transcrição ---------- */
+.fala .traducao, .fala .correcao { display: flex; align-items: flex-start; gap: 5px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--borda); font-size: 12.5px; color: var(--texto-2); }
+.fala .traducao svg, .fala .correcao svg { flex: none; margin-top: 2px; color: #8FB0FF; }
+.fala .correcao { color: #9BE3B0; }
+.fala .correcao svg { color: #56C46B; }
+.menu.menu-traducao { width: 290px; }
+.painel-traducao { display: flex; flex-direction: column; gap: 4px; }
+.linha-ajuste { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; font-size: 13px; }
+.linha-ajuste .sub { font-size: 11.5px; color: var(--texto-3); }
+.icone.ativo { color: #8FB0FF; background: rgba(91, 149, 255, 0.14); }

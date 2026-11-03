@@ -10,6 +10,7 @@ import { GerenciadorJanelas, marcarEncerrando } from './janelas/gerenciador';
 import { PreferenciasService } from './preferencias';
 import { SegredosService } from './segredos';
 import { capturarTela, LeituraAutomatica } from './tela';
+import { lerTextoSelecionado } from './selecao';
 
 /**
  * Processo principal: o único que fala com o sistema operacional. Monta os
@@ -66,11 +67,20 @@ function iniciar(): void {
       alternarTela: () => janelas.alternar('tela'),
       alternarHome: () => janelas.alternar('home'),
       lerTela: () => void lerTela(),
+      perguntarSelecao: () => void perguntarSelecao(),
       alternarCaptura: () => captura.alternar(),
       sair: () => app.quit(),
     },
     difundir,
   );
+
+  /** Texto selecionado em qualquer app: vai para o chat (que aparece, se estava escondido). */
+  async function perguntarSelecao(): Promise<void> {
+    const texto = await lerTextoSelecionado();
+    const w = janelas.obter('agregador');
+    if (!w) return;
+    emitir(w.webContents, 'selecao.lida', { texto: texto ?? '' });
+  }
 
   /** Print da tela: o chat (agregador) manda para a IA e a janela Tela mostra a prévia. */
   async function lerTela(origem: 'manual' | 'auto' = 'manual'): Promise<void> {

@@ -76,6 +76,8 @@ export const contratoIpc = {
     estado: EstadoApp,
     'chat.alternar': nada,
     /** Print pronto (JPEG reduzido). O chat manda para a IA; a janela Tela mostra a prévia. */
+    /** Atalho do texto selecionado: o chat manda para a IA explicar ou responder. */
+    'selecao.lida': z.object({ texto: z.string() }),
     'tela.lida': z.object({ dataUrl: z.string(), em: z.number(), origem: z.enum(['manual', 'recorte', 'auto']) }),
     /** Para a janela de captura: o que fazer. */
     'captura.comando': ComandoCaptura,
