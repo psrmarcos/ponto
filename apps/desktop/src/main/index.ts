@@ -15,6 +15,9 @@ import { SegredosService } from './segredos';
  * tipada do preload.
  */
 
+// Nome da pasta de dados (%APPDATA%\Ponto no Windows). Precisa vir antes de qualquer getPath.
+app.setName('Ponto');
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
