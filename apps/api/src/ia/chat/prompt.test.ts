@@ -17,7 +17,7 @@ describe('montarMensagens', () => {
   });
 
   it('limita o histórico e corta respostas antigas longas', () => {
-    const historico = Array.from({ length: 20 }, (_, i) => ({ pergunta: `p${i}`, resposta: 'x'.repeat(5000) }));
+    const historico = Array.from({ length: 20 }, (_, i) => ({ pergunta: `p${i}`, perguntaPura: `p${i}`, resposta: 'x'.repeat(5000), charsTranscricao: 0 }));
     const m = montarMensagens({ ...base, historico });
     // system + 2 por troca + pergunta atual
     expect(m.length).toBe(1 + TROCAS_NO_HISTORICO * 2 + 1);

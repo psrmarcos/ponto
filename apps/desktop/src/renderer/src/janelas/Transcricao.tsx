@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowCounterClockwise, Broom, Microphone, Pause, Play, Record, SpeakerHigh, Stop, Waveform } from '@phosphor-icons/react';
 import type { Configuracoes, Fala } from '@ponto/shared';
 import { useCaptura, useEstadoApp } from '../estado/app';
+import { api } from '../api/cliente';
 import { useDominio } from '../estado/dominio';
 import { useTranscricao } from '../estado/transcricao';
 import { Cabecalho } from '../ui/Cabecalho';
@@ -31,8 +32,42 @@ export function Transcricao() {
         <Desfazer />
         {aviso && <div className="aviso-transcricao" role="status">{aviso}</div>}
         {captura.status !== 'parada' && <Medidores fontes={captura.fontes} />}
+        <AvisoAta />
         <Rodape />
       </div>
+    </div>
+  );
+}
+
+/** Depois de encerrar: avisa que a ata está sendo escrita e onde encontrar. */
+function AvisoAta() {
+  const [status, setStatus] = useState<'gerando' | 'pronto' | 'erro' | null>(null);
+  useEffect(
+    () =>
+      api.ouvir((e) => {
+        if (e.tipo === 'sessao.resumo') setStatus(e.status);
+        if (e.tipo === 'transcricao.fala') setStatus(null);
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (status !== 'pronto' && status !== 'erro') return;
+    const t = setTimeout(() => setStatus(null), 20_000);
+    return () => clearTimeout(t);
+  }, [status]);
+  if (!status) return null;
+  return (
+    <div className="aviso-transcricao" role="status">
+      {status === 'gerando' && 'Escrevendo a ata da call…'}
+      {status === 'erro' && 'Não consegui escrever a ata. Dá para tentar de novo em Sessões, na Home.'}
+      {status === 'pronto' && (
+        <>
+          Ata pronta.{' '}
+          <button type="button" className="link-aviso" onClick={() => void window.ponto.invocar('janela.alternar', { id: 'home', visivel: true })}>
+            Ver em Sessões
+          </button>
+        </>
+      )}
     </div>
   );
 }

@@ -46,6 +46,13 @@ export const contratoIpc = {
     'captura.comandar': { entrada: ComandoCaptura, saida: nada },
     /** Tira um print da tela onde está o cursor e manda para o chat analisar. */
     'tela.ler': { entrada: nada, saida: nada },
+    /** Salva um .md em Documentos/Ponto, sem diálogo (diálogos do sistema aparecem em gravações). */
+    'arquivo.salvarMarkdown': {
+      entrada: z.object({ nome: z.string().min(1).max(160), conteudo: z.string().max(20_000_000) }),
+      saida: z.object({ caminho: z.string() }),
+    },
+    /** Abre o Explorer/Finder com o arquivo selecionado. */
+    'arquivo.mostrar': { entrada: z.object({ caminho: z.string().min(1) }), saida: nada },
   },
   enviar: {
     /** Retângulos (px da janela) que recebem o mouse; fora deles o clique atravessa. */

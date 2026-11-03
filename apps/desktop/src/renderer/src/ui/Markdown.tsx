@@ -29,9 +29,15 @@ function paragrafos(texto: string, chave: number): ReactNode[] {
     if (!lista.length) return;
     saida.push(
       <ul key={k}>
-        {lista.map((l, i) => (
-          <li key={i}>{inline(l)}</li>
-        ))}
+        {lista.map((l, i) => {
+          const tarefa = /^\[( |x|X)\]\s+(.*)$/.exec(l);
+          return (
+            <li key={i} className={tarefa ? 'md-tarefa' : undefined}>
+              {tarefa ? <span aria-hidden>{tarefa[1] === ' ' ? '☐ ' : '☑ '}</span> : null}
+              {inline(tarefa ? (tarefa[2] ?? '') : l)}
+            </li>
+          );
+        })}
       </ul>,
     );
     lista = [];
@@ -43,7 +49,15 @@ function paragrafos(texto: string, chave: number): ReactNode[] {
       return;
     }
     fecharLista(`${chave}-l${i}`);
-    const limpa = linha.replace(/^#{1,6}\s+/, '');
+    const titulo = /^(#{1,6})\s+(.*)$/.exec(linha);
+    if (titulo) {
+      const nivel = titulo[1]!.length;
+      saida.push(
+        nivel === 1 ? <h3 key={`${chave}-h${i}`} className="md-h1">{inline(titulo[2] ?? '')}</h3> : <h4 key={`${chave}-h${i}`} className="md-h2">{inline(titulo[2] ?? '')}</h4>,
+      );
+      return;
+    }
+    const limpa = linha.replace(/^_(.+)_$/, '$1');
     if (limpa.trim()) saida.push(<p key={`${chave}-p${i}`}>{inline(limpa)}</p>);
   });
   fecharLista(`${chave}-lfim`);

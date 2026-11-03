@@ -8,7 +8,8 @@ import { SessoesService } from '../../sessoes/sessoes.service';
 import { TranscricaoService } from '../../transcricao/transcricao.service';
 import { ProvedoresService } from '../provedores/provedores.service';
 import { ErroProvedor, type ProvedorIa } from '../provedores/provedor';
-import { montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior } from './prompt';
+import { mensagemDoUsuario, montarMensagens, textoDoPedido, TROCAS_NO_HISTORICO, type TrocaAnterior } from './prompt';
+import type { ResumoParcial } from '../../sessoes/sessoes.service';
 
 /** Junta os pedacinhos do streaming e manda no máximo a cada N ms (menos mensagens, menos re-render). */
 const INTERVALO_DELTA_MS = 40;
@@ -16,11 +17,31 @@ const MAX_TOKENS = 800;
 const MAX_TOKENS_RACIOCINIO = 2500;
 /** Quanto o chat espera por falas ainda em transcrição antes de responder. */
 const ESPERA_TRANSCRICAO_MS = 1200;
+/** Falas novas mandadas de uma vez, no máximo (o começo fica de fora; o resumo cobre). */
+const MAX_CHARS_FALAS_NOVAS = 8000;
+/** Passando disso de transcrição no histórico, troca a parte antiga pelo resumo do começo. */
+const MAX_CHARS_TRANSCRICAO_HISTORICO = 9000;
+
+/**
+ * O que esta conversa já mandou da call. A transcrição vai em pedaços, só
+ * acrescentando: cada pergunta leva as falas novas desde a anterior, e o
+ * histórico guarda o que foi enviado. Assim o começo das mensagens não muda e o
+ * provedor reaproveita o cache. Quando o acumulado fica grande, a parte antiga
+ * vira o resumo do começo da call (uma troca de prefixo de vez em quando).
+ */
+interface CallNaConversa {
+  sessaoId: string;
+  versao: number;
+  resumo: ResumoParcial | null;
+  /** Início da última fala já enviada. */
+  cursorMs: number;
+}
 
 interface Conversa {
   historico: TrocaAnterior[];
   gastoUsd: number;
   emAndamento: AbortController | null;
+  call: CallNaConversa | null;
 }
 
 @Injectable()
@@ -56,6 +77,39 @@ export class ChatService {
     return lista?.find((m) => m.id === modelo)?.aceitaImagem ?? true;
   }
 
+  /**
+   * Falas que esta conversa ainda não mandou. Reinicia a parte da call (troca a
+   * transcrição antiga do histórico pelo resumo do começo) quando a sessão mudou,
+   * quando falas foram apagadas ou quando o acumulado ficou grande e já existe um
+   * resumo mais novo. O cursor só anda quando a resposta termina.
+   */
+  private async falasNovas(conversa: Conversa, sessaoId: string): Promise<{ texto: string | null; cursorMs: number }> {
+    const parcial = this.sessoes.resumoParcial(sessaoId);
+    const versao = this.sessoes.versao(sessaoId);
+    const noHistorico = conversa.historico.reduce((n, t) => n + t.charsTranscricao, 0);
+    const atual = conversa.call;
+    const resumoMaisNovo = !!parcial && parcial.ateMs > (atual?.resumo?.ateMs ?? -1);
+    if (
+      !atual ||
+      atual.sessaoId !== sessaoId ||
+      atual.versao !== versao ||
+      (resumoMaisNovo && noHistorico > MAX_CHARS_TRANSCRICAO_HISTORICO)
+    ) {
+      conversa.historico = conversa.historico.map((t) => ({ ...t, pergunta: t.perguntaPura, charsTranscricao: 0 }));
+      conversa.call = { sessaoId, versao, resumo: parcial, cursorMs: parcial?.ateMs ?? -1 };
+    }
+    const call = conversa.call!;
+    const novas = await this.sessoes.falasApos(sessaoId, call.cursorMs);
+    if (!novas.length) return { texto: null, cursorMs: call.cursorMs };
+    const cursorMs = novas[novas.length - 1]!.inicioMs;
+    let texto = await this.sessoes.formatar(novas);
+    if (texto.length > MAX_CHARS_FALAS_NOVAS) {
+      const corte = texto.indexOf('\n', texto.length - MAX_CHARS_FALAS_NOVAS);
+      texto = `(…)\n${texto.slice(corte + 1)}`;
+    }
+    return { texto, cursorMs };
+  }
+
   cancelar(conversaId: string): void {
     this.conversas.get(conversaId)?.emAndamento?.abort();
   }
@@ -63,7 +117,7 @@ export class ChatService {
   private conversa(id: string): Conversa {
     let c = this.conversas.get(id);
     if (!c) {
-      c = { historico: [], gastoUsd: 0, emAndamento: null };
+      c = { historico: [], gastoUsd: 0, emAndamento: null, call: null };
       this.conversas.set(id, c);
     }
     return c;
@@ -94,8 +148,15 @@ export class ChatService {
       if (pedido.imagens.length && !(await this.enxerga(provedor, modelo))) modelo = config.modeloVisao;
       // A última fala (normalmente a pergunta) pode estar a 1-2 s de virar texto: espera no máximo 1,2 s por ela e segue sem (rapidez vale mais).
       if (pedido.sessaoId) await this.transcricao.aguardarPendentes(pedido.sessaoId, ESPERA_TRANSCRICAO_MS);
-      const transcricao = pedido.sessaoId ? await this.sessoes.contextoRecente(pedido.sessaoId).catch(() => null) : null;
-      const mensagens = montarMensagens({ agente, config, historico: conversa.historico, pedido, transcricao });
+      const call = pedido.sessaoId ? await this.falasNovas(conversa, pedido.sessaoId).catch(() => null) : null;
+      const mensagens = montarMensagens({
+        agente,
+        config,
+        historico: conversa.historico,
+        pedido,
+        transcricao: call?.texto,
+        resumoCall: conversa.call?.resumo?.texto,
+      });
 
       this.eventos.emitir({ tipo: 'chat.inicio', conversaId: pedido.conversaId, respostaId, modelo });
 
@@ -121,8 +182,19 @@ export class ChatService {
       if (timer) clearTimeout(timer);
       despejar();
 
-      conversa.historico.push({ pergunta: textoDoPedido(pedido), resposta: acumulado });
-      if (conversa.historico.length > TROCAS_NO_HISTORICO * 2) conversa.historico.splice(0, TROCAS_NO_HISTORICO);
+      const perguntaPura = textoDoPedido(pedido);
+      conversa.historico.push({
+        pergunta: mensagemDoUsuario(perguntaPura, call?.texto),
+        perguntaPura,
+        resposta: acumulado,
+        charsTranscricao: call?.texto?.length ?? 0,
+      });
+      if (call && conversa.call) conversa.call.cursorMs = call.cursorMs;
+      if (conversa.historico.length > TROCAS_NO_HISTORICO * 2) {
+        conversa.historico.splice(0, TROCAS_NO_HISTORICO);
+        // As falas que estavam nas trocas descartadas voltam pelo resumo + falas desde ele.
+        conversa.call = null;
+      }
       if (uso) {
         conversa.gastoUsd += uso.custoUsd;
         await this.uso.registrar({ provedor: provedor.id, origem: 'chat', sessaoId: pedido.sessaoId ?? null, uso });

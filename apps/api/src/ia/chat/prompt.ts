@@ -31,8 +31,13 @@ const REGRAS = [
 ].join('\n');
 
 export interface TrocaAnterior {
+  /** Exatamente o que foi enviado (com as falas da call daquela vez): o histórico é só acrescido, e o cache do provedor aproveita. */
   pergunta: string;
+  /** Só o pedido, sem transcrição. Usado quando a transcrição antiga é trocada pelo resumo. */
+  perguntaPura: string;
   resposta: string;
+  /** Tamanho da transcrição que foi junto nesta troca. */
+  charsTranscricao: number;
 }
 
 /**
@@ -45,8 +50,10 @@ export function montarMensagens(args: {
   config: Pick<Configuracoes, 'nomeUsuario' | 'contextoUsuario'>;
   historico: TrocaAnterior[];
   pedido: Pick<PedidoChat, 'texto' | 'atalho' | 'imagens'>;
-  /** Trecho recente da call, já formatado. Vai só na última mensagem (não entra no histórico). */
+  /** Falas da call que o modelo ainda não viu nesta conversa, já formatadas. */
   transcricao?: string | null;
+  /** Resumo do começo da call (o que já saiu das falas enviadas). */
+  resumoCall?: string | null;
 }): MensagemIa[] {
   const perfil = [
     args.config.nomeUsuario && `Nome do usuário: ${args.config.nomeUsuario}.`,
@@ -56,7 +63,9 @@ export function montarMensagens(args: {
     .join('\n');
 
   const sistema: ParteMensagem[] = [{ tipo: 'texto', texto: `${args.agente.prompt}\n\n${REGRAS}`, cache: !perfil }];
-  if (perfil) sistema.push({ tipo: 'texto', texto: perfil, cache: true });
+  if (perfil) sistema.push({ tipo: 'texto', texto: perfil, cache: !args.resumoCall });
+  // Muda raramente (só quando o começo da call é resumido de novo), então fica no prefixo fixo.
+  if (args.resumoCall) sistema.push({ tipo: 'texto', texto: `Resumo do começo da call:\n${args.resumoCall}`, cache: true });
 
   const mensagens: MensagemIa[] = [{ papel: 'system', conteudo: sistema }];
 
@@ -65,10 +74,7 @@ export function montarMensagens(args: {
     mensagens.push({ papel: 'assistant', conteudo: cortar(t.resposta, MAX_CHARS_RESPOSTA_ANTIGA) });
   }
 
-  const pergunta = textoDoPedido(args.pedido);
-  const texto = args.transcricao
-    ? `Transcrição recente da call (o usuário aparece pelo nome ou como "Você"; os outros como "Participante"):\n${args.transcricao}\n\n---\n${pergunta}`
-    : pergunta;
+  const texto = mensagemDoUsuario(textoDoPedido(args.pedido), args.transcricao);
   if (args.pedido.imagens.length) {
     mensagens.push({
       papel: 'user',
@@ -78,6 +84,12 @@ export function montarMensagens(args: {
     mensagens.push({ papel: 'user', conteudo: texto });
   }
   return mensagens;
+}
+
+/** A pergunta com as falas novas da call na frente. */
+export function mensagemDoUsuario(pergunta: string, transcricao?: string | null): string {
+  if (!transcricao) return pergunta;
+  return `Falas da call desde a última mensagem (o usuário aparece pelo nome ou como "Você"; os outros como "Participante"):\n${transcricao}\n\n---\n${pergunta}`;
 }
 
 export function textoDoPedido(p: Pick<PedidoChat, 'texto' | 'atalho' | 'imagens'>): string {

@@ -30,8 +30,23 @@ export const Sessao = z.object({
   agenteId: z.string(),
   iniciadaEm: z.number(),
   encerradaEm: z.number().nullable(),
+  /** Ata da reunião em Markdown, gerada ao encerrar. */
+  resumo: z.string().nullable(),
 });
 export type Sessao = z.infer<typeof Sessao>;
+
+/** Linha da lista de sessões na Home. */
+export const SessaoNaLista = Sessao.omit({ resumo: true }).extend({
+  totalFalas: z.number().int(),
+  /** Fim da última fala, para mostrar a duração. */
+  duracaoMs: z.number().int(),
+  temResumo: z.boolean(),
+  gerandoResumo: z.boolean(),
+});
+export type SessaoNaLista = z.infer<typeof SessaoNaLista>;
+
+export const EdicaoSessao = z.object({ titulo: z.string().trim().min(1).max(120) });
+export type EdicaoSessao = z.infer<typeof EdicaoSessao>;
 
 export const NovaSessao = z.object({ agenteId: z.string().optional() });
 export type NovaSessao = z.infer<typeof NovaSessao>;

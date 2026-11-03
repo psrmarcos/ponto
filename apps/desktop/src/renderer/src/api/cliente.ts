@@ -101,7 +101,9 @@ class ClienteApi {
       const j = (await r.json().catch(() => null)) as { message?: string; mensagem?: string } | null;
       throw new Error(j?.mensagem ?? j?.message ?? `Erro ${r.status}`);
     }
-    return (r.status === 204 ? undefined : await r.json()) as T;
+    const texto = await r.text();
+    if (!texto) return undefined as T;
+    return ((r.headers.get('content-type') ?? '').includes('json') ? JSON.parse(texto) : texto) as T;
   }
 }
 

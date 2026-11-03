@@ -1,6 +1,6 @@
-import { app, BrowserWindow, dialog, type WebContents } from 'electron';
-import { readFile } from 'node:fs/promises';
-import { basename, extname } from 'node:path';
+import { app, BrowserWindow, dialog, shell, type WebContents } from 'electron';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, extname, join, resolve } from 'node:path';
 import { IdJanela, IdSegredo, type EstadoApp } from '@ponto/shared';
 import { ApiHost } from './api-host';
 import { AtalhosService } from './atalhos';
@@ -131,6 +131,19 @@ function iniciar(): void {
       'app.sair': () => app.quit(),
       'captura.comandar': (c) => captura.comandar(c),
       'tela.ler': () => lerTela(),
+      'arquivo.salvarMarkdown': async ({ nome, conteudo }) => {
+        const pasta = join(app.getPath('documents'), 'Ponto');
+        await mkdir(pasta, { recursive: true });
+        const limpo = nome.replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Sessão';
+        const caminho = join(pasta, `${limpo}.md`);
+        await writeFile(caminho, conteudo, 'utf8');
+        return { caminho };
+      },
+      'arquivo.mostrar': ({ caminho }) => {
+        // Só arquivos que o próprio app salvou.
+        const pasta = resolve(app.getPath('documents'), 'Ponto');
+        if (resolve(caminho).startsWith(pasta)) shell.showItemInFolder(caminho);
+      },
     },
     {
       'janela.areasSolidas': ({ areas }, e) => {

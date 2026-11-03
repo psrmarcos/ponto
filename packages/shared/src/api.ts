@@ -149,6 +149,13 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   /** O app detectou uma pergunta para o usuário e já começou a responder (chat.* com este respostaId). */
   z.object({ tipo: z.literal('sugestao.nova'), sessaoId: z.string(), respostaId: z.string(), pergunta: z.string() }),
   z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),
+  /** Ata da sessão: começou a ser gerada, ficou pronta ou falhou. */
+  z.object({
+    tipo: z.literal('sessao.resumo'),
+    sessaoId: z.string(),
+    status: z.enum(['gerando', 'pronto', 'erro']),
+    mensagem: z.string().optional(),
+  }),
 ]);
 export type EventoWs = z.infer<typeof EventoWs>;
 

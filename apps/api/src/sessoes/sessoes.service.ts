@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, lte } from 'drizzle-orm';
-import type { CanalAudio, Fala, Sessao } from '@ponto/shared';
+import { and, asc, count, desc, eq, gt, lte, max } from 'drizzle-orm';
+import type { CanalAudio, Fala, Sessao, SessaoNaLista } from '@ponto/shared';
 import { novoId } from '../comum/id';
 import { BANCO } from '../db/db.module';
 import type { Banco } from '../db/conexao';
@@ -12,9 +12,39 @@ import { EventosService } from '../eventos/eventos.service';
 const MAX_CHARS_CONTEXTO = 6000;
 const MAX_FALAS_CONTEXTO = 40;
 
+/** Resumo do começo da call, para o chat não reenviar a transcrição inteira. Fica só em memória. */
+export interface ResumoParcial {
+  texto: string;
+  /** Falas com início até aqui estão cobertas pelo resumo. */
+  ateMs: number;
+}
+
 @Injectable()
 export class SessoesService {
   private readonly ouvintesFala = new Set<(f: Fala) => void>();
+  private readonly ouvintesEncerrar = new Set<(sessaoId: string) => void>();
+  private readonly parciais = new Map<string, ResumoParcial>();
+  /** Muda quando falas são apagadas: quem guardou transcrição antiga sabe que precisa descartar. */
+  private readonly versoes = new Map<string, number>();
+  /** Sessões com ata sendo gerada agora (para a lista mostrar). */
+  readonly gerandoResumo = new Set<string>();
+
+  aoEncerrar(fn: (sessaoId: string) => void): () => void {
+    this.ouvintesEncerrar.add(fn);
+    return () => this.ouvintesEncerrar.delete(fn);
+  }
+
+  resumoParcial(sessaoId: string): ResumoParcial | null {
+    return this.parciais.get(sessaoId) ?? null;
+  }
+
+  definirResumoParcial(sessaoId: string, r: ResumoParcial): void {
+    this.parciais.set(sessaoId, r);
+  }
+
+  versao(sessaoId: string): number {
+    return this.versoes.get(sessaoId) ?? 0;
+  }
 
   /** Avisa quem precisa reagir a cada fala nova (ex.: sugestões automáticas). */
   aoNovaFala(fn: (f: Fala) => void): () => void {
@@ -34,17 +64,78 @@ export class SessoesService {
     const titulo = `Sessão de ${agora.toLocaleDateString('pt-BR')} ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
     const id = novoId();
     await this.banco.insert(sessoes).values({ id, titulo, agenteId: agente, iniciadaEm: agora });
-    return { id, titulo, agenteId: agente, iniciadaEm: agora.getTime(), encerradaEm: null };
+    return { id, titulo, agenteId: agente, iniciadaEm: agora.getTime(), encerradaEm: null, resumo: null };
+  }
+
+  async listar(limite = 100): Promise<SessaoNaLista[]> {
+    const linhas = await this.banco
+      .select({
+        id: sessoes.id,
+        titulo: sessoes.titulo,
+        agenteId: sessoes.agenteId,
+        iniciadaEm: sessoes.iniciadaEm,
+        encerradaEm: sessoes.encerradaEm,
+        resumo: sessoes.resumo,
+        totalFalas: count(falas.id),
+        fim: max(falas.fimMs),
+      })
+      .from(sessoes)
+      .leftJoin(falas, eq(falas.sessaoId, sessoes.id))
+      .groupBy(sessoes.id)
+      .orderBy(desc(sessoes.iniciadaEm))
+      .limit(limite);
+    return linhas
+      .filter((l) => l.totalFalas > 0 || l.resumo)
+      .map((l) => ({
+        id: l.id,
+        titulo: l.titulo,
+        agenteId: l.agenteId,
+        iniciadaEm: l.iniciadaEm.getTime(),
+        encerradaEm: l.encerradaEm?.getTime() ?? null,
+        totalFalas: l.totalFalas,
+        duracaoMs: l.fim ?? 0,
+        temResumo: !!l.resumo,
+        gerandoResumo: this.gerandoResumo.has(l.id),
+      }));
+  }
+
+  async renomear(id: string, titulo: string): Promise<void> {
+    await this.banco.update(sessoes).set({ titulo }).where(eq(sessoes.id, id));
+  }
+
+  async salvarResumo(id: string, resumo: string, titulo?: string): Promise<void> {
+    await this.banco.update(sessoes).set(titulo ? { resumo, titulo } : { resumo }).where(eq(sessoes.id, id));
+  }
+
+  async apagar(id: string): Promise<void> {
+    await this.banco.delete(sessoes).where(eq(sessoes.id, id));
+    this.parciais.delete(id);
+  }
+
+  /** Falas depois de `aposMs` (início), em ordem. */
+  async falasApos(sessaoId: string, aposMs: number): Promise<Fala[]> {
+    return this.banco
+      .select()
+      .from(falas)
+      .where(and(eq(falas.sessaoId, sessaoId), gt(falas.inicioMs, aposMs)))
+      .orderBy(asc(falas.inicioMs));
+  }
+
+  /** "[Marcos] texto" por linha, com o nome configurado para o microfone. */
+  async formatar(lista: Pick<Fala, 'canal' | 'falante' | 'texto'>[]): Promise<string> {
+    const { nomeUsuario } = await this.config.obter();
+    return lista.map((f) => `[${f.falante ?? (f.canal === 'microfone' ? nomeUsuario || 'Você' : 'Participante')}] ${f.texto}`).join('\n');
   }
 
   async obter(id: string): Promise<Sessao> {
     const [s] = await this.banco.select().from(sessoes).where(eq(sessoes.id, id));
     if (!s) throw new NotFoundException('Sessão não encontrada.');
-    return { ...s, iniciadaEm: s.iniciadaEm.getTime(), encerradaEm: s.encerradaEm?.getTime() ?? null };
+    return { ...s, iniciadaEm: s.iniciadaEm.getTime(), encerradaEm: s.encerradaEm?.getTime() ?? null, resumo: s.resumo ?? null };
   }
 
   async encerrar(id: string): Promise<void> {
     await this.banco.update(sessoes).set({ encerradaEm: new Date() }).where(and(eq(sessoes.id, id)));
+    this.ouvintesEncerrar.forEach((fn) => fn(id));
   }
 
   async falas(sessaoId: string): Promise<Fala[]> {
@@ -57,6 +148,9 @@ export class SessoesService {
    */
   async limparFalas(sessaoId: string, ateMs: number): Promise<void> {
     await this.banco.delete(falas).where(and(eq(falas.sessaoId, sessaoId), lte(falas.inicioMs, ateMs)));
+    // O resumo do começo e a transcrição guardada nas conversas falavam do que foi apagado.
+    this.parciais.delete(sessaoId);
+    this.versoes.set(sessaoId, this.versao(sessaoId) + 1);
     this.eventos.emitir({ tipo: 'transcricao.limpa', sessaoId, ateMs });
   }
 

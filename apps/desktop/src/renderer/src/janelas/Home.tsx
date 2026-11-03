@@ -6,6 +6,7 @@ import { Cabecalho } from '../ui/Cabecalho';
 import { Logo } from '../ui/Logo';
 import { Configuracoes } from './home/Configuracoes';
 import { Perfil } from './home/Perfil';
+import { Sessoes } from './home/Sessoes';
 
 type Secao = 'inicio' | 'sessoes' | 'agentes' | 'config' | 'perfil' | 'sobre';
 
@@ -109,21 +110,6 @@ function Inicio({ irPara }: { irPara: (s: Secao) => void }) {
         <div className="cartao">
           <span className="rot">Tokens no mês</span>
           <span className="val">{formatarNumero(uso?.tokensMes ?? 0)}</span>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function Sessoes() {
-  return (
-    <>
-      <h2>Sessões</h2>
-      <p className="lead">Transcrições, resumos e action items de cada call. Tudo salvo só no seu PC.</p>
-      <div className="lista">
-        <div className="vazio" style={{ padding: 32 }}>
-          <span className="t1">Nenhuma sessão ainda</span>
-          <span>As sessões aparecem aqui quando a captura de áudio entrar.</span>
         </div>
       </div>
     </>

@@ -7,11 +7,12 @@ import { ChatService } from './chat/chat.service';
 import { IaController } from './ia.controller';
 import { OpenRouterProvider } from './provedores/openrouter.provider';
 import { ProvedoresService } from './provedores/provedores.service';
+import { TextoIaService } from './texto-ia.service';
 
 @Module({
   imports: [AgentesModule, SessoesModule, TranscricaoModule],
   controllers: [IaController, ChatController],
-  providers: [OpenRouterProvider, ProvedoresService, ChatService],
-  exports: [ChatService],
+  providers: [OpenRouterProvider, ProvedoresService, ChatService, TextoIaService],
+  exports: [ChatService, TextoIaService],
 })
 export class IaModule {}
