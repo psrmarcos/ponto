@@ -105,7 +105,11 @@ export function montarMensagens(args: {
 /** A pergunta com as falas novas da call na frente. */
 export function mensagemDoUsuario(pergunta: string, transcricao?: string | null): string {
   if (!transcricao) return pergunta;
-  return `Falas da call desde a última mensagem (o usuário aparece pelo nome ou como "Você"; os outros como "Participante"):\n${transcricao}\n\n---\n${pergunta}`;
+  return (
+    `Falas da call desde a última mensagem (o usuário aparece pelo nome ou como "Você"; os outros como "Participante"). ` +
+    `São só contexto: não responda perguntas daqui que já foram respondidas ou que o pedido abaixo não pede.\n${transcricao}\n\n` +
+    `---\nPedido do usuário (responda só a isto):\n${pergunta}`
+  );
 }
 
 export function textoDoPedido(p: Pick<PedidoChat, 'texto' | 'atalho' | 'imagens'>): string {

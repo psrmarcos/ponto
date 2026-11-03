@@ -57,9 +57,13 @@ interface Conversa {
   /** Da última resposta: para a janela de contexto. */
   agenteId: string | null;
   ultima: UsoIa | null;
+  /** Gasto extra liberado na hora quando a conversa bateu no teto. */
+  extraUsd: number;
 }
 
-const NOVA = (): Conversa => ({ historico: [], gastoUsd: 0, emAndamento: null, call: null, resumo: null, agenteId: null, ultima: null });
+class ErroTeto extends ErroProvedor {}
+
+const NOVA = (): Conversa => ({ historico: [], gastoUsd: 0, emAndamento: null, call: null, resumo: null, agenteId: null, ultima: null, extraUsd: 0 });
 
 /** Estimativa barata de tokens: em português dá uns 3,5 caracteres por token. */
 const tokens = (chars: number) => Math.ceil(chars / 3.5);
@@ -213,6 +217,11 @@ export class ChatService {
     }
   }
 
+  /** Libera mais gasto nesta conversa (só nela; o teto padrão continua o mesmo). */
+  liberar(conversaId: string, usd: number): void {
+    this.conversa(conversaId).extraUsd += usd;
+  }
+
   cancelar(conversaId: string): void {
     this.conversas.get(conversaId)?.emAndamento?.abort();
   }
@@ -239,10 +248,9 @@ export class ChatService {
 
     try {
       const config = await this.config.obter();
-      if (config.tetoSessaoUsd > 0 && conversa.gastoUsd >= config.tetoSessaoUsd) {
-        throw new ErroProvedor(
-          `Teto de gasto desta conversa atingido (US$ ${config.tetoSessaoUsd.toFixed(2)}). Ajuste em Configurações.`,
-        );
+      const teto = config.tetoSessaoUsd + conversa.extraUsd;
+      if (config.tetoSessaoUsd > 0 && conversa.gastoUsd >= teto) {
+        throw new ErroTeto(`Esta conversa chegou no teto de gasto (US$ ${teto.toFixed(2)}). Libere mais para continuar.`);
       }
       const agente = await this.agentes.obter(pedido.agenteId).catch(() => this.agentes.obter('geral'));
       const provedor = this.provedores.obter(config.provedorPadrao);
@@ -325,7 +333,7 @@ export class ChatService {
             : e instanceof Error
               ? e.message
               : 'Erro inesperado.';
-      this.eventos.emitir({ tipo: 'chat.erro', respostaId, mensagem });
+      this.eventos.emitir({ tipo: 'chat.erro', respostaId, mensagem, codigo: e instanceof ErroTeto ? 'teto' : undefined });
     } finally {
       if (conversa.emAndamento === controle) conversa.emAndamento = null;
     }

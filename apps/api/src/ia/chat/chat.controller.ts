@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
-import { PedidoChat, type ContextoConversa, type RespostaPedidoChat } from '@ponto/shared';
+import { LiberarGasto, PedidoChat, type ContextoConversa, type RespostaPedidoChat } from '@ponto/shared';
 import { ZodPipe } from '../../comum/zod.pipe';
 import { ChatService } from './chat.service';
 
@@ -24,6 +24,13 @@ export class ChatController {
   @Post('conversas/:id/comprimir')
   comprimir(@Param('id') id: string, @Query('sessao') sessao?: string): Promise<ContextoConversa> {
     return this.chat.comprimir(id, sessao || null);
+  }
+
+  /** Bateu no teto: libera mais US$ nesta conversa. */
+  @Post('conversas/:id/liberar')
+  @HttpCode(204)
+  liberar(@Param('id') id: string, @Body(new ZodPipe(LiberarGasto)) corpo: LiberarGasto): void {
+    this.chat.liberar(id, corpo.usd);
   }
 
   @Post('conversas/:id/cancelar')

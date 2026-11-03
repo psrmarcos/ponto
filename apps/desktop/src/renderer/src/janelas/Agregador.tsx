@@ -217,12 +217,35 @@ function Balao({ m }: { m: Mensagem }) {
   return (
     <div className={`msg ia${m.estado === 'erro' ? ' erro' : ''}`}>
       {m.estado === 'erro' ? m.texto : m.texto ? <Markdown texto={m.texto} /> : null}
+      {m.estado === 'erro' && m.teto && <LiberarTeto />}
       {escrevendo && <span className="digitando" />}
       {m.estado === 'pronta' && m.uso && (
         <div className="rodape-msg">
           {m.uso.modelo} · {m.uso.tokensEntrada + m.uso.tokensSaida} tokens · US$ {m.uso.custoUsd.toFixed(4)}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Bateu no teto de gasto: libera mais nesta conversa e manda a última pergunta de novo. */
+function LiberarTeto() {
+  const [feito, setFeito] = useState(false);
+  const liberar = async (usd: number) => {
+    const { conversaId, mensagens, enviar } = useChat.getState();
+    await api.post(`/chat/conversas/${conversaId}/liberar`, { usd }).catch(() => undefined);
+    setFeito(true);
+    const ultima = [...mensagens].reverse().find((x) => x.papel === 'eu' && !x.automatica);
+    if (ultima?.texto) void enviar(ultima.texto);
+  };
+  if (feito) return <div className="rodape-msg">Liberado. Mandei a pergunta de novo.</div>;
+  return (
+    <div className="acoes-teto">
+      {[0.5, 1, 2].map((v) => (
+        <button type="button" key={v} className="btn-sec" onClick={() => void liberar(v)}>
+          + US$ {v.toFixed(2).replace('.', ',')}
+        </button>
+      ))}
     </div>
   );
 }

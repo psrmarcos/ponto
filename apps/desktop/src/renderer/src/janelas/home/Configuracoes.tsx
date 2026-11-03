@@ -309,7 +309,15 @@ function GravadorAtalho({ acao, atual }: { acao: AcaoAtalho; atual: string }) {
         onBlur={() => setGravando(false)}
         onKeyDown={(e) => void tecla(e)}
       >
-        {gravando ? 'Aperte as teclas…' : legivel(atual)}
+        {gravando ? (
+          'Aperte as teclas…'
+        ) : (
+          <span className="teclas">
+            {teclasLegiveis(atual).map((t, i) => (
+              <kbd key={i}>{t}</kbd>
+            ))}
+          </span>
+        )}
       </button>
       {erro && <span style={{ fontSize: 11.5, color: 'var(--vermelho)' }}>{erro}</span>}
     </span>
@@ -336,6 +344,18 @@ function paraAccelerator(e: KeyboardEvent): string | null {
   return [...mods, tecla].join('+');
 }
 
-function legivel(accel: string): string {
-  return accel.replace('CommandOrControl', 'Ctrl').split('+').join(' + ');
+const NOMES_TECLA: Record<string, string> = {
+  CommandOrControl: 'Ctrl',
+  Control: 'Ctrl',
+  Shift: '⇧ Shift',
+  Space: 'Espaço',
+  Up: '↑',
+  Down: '↓',
+  Left: '←',
+  Right: '→',
+};
+
+/** "CommandOrControl+Shift+G" vira ["Ctrl", "⇧ Shift", "G"], uma teclinha cada. */
+function teclasLegiveis(accel: string): string[] {
+  return accel.split('+').filter(Boolean).map((t) => NOMES_TECLA[t] ?? t);
 }

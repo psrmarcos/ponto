@@ -15,6 +15,8 @@ export interface Mensagem {
   uso?: UsoIa | null;
   /** Pergunta que o app detectou sozinho na call (não foi você que mandou). */
   automatica?: boolean;
+  /** Erro de teto de gasto: a mensagem oferece liberar mais. */
+  teto?: boolean;
 }
 
 export interface Anexo {
@@ -144,7 +146,7 @@ export function iniciarChat(): void {
         break;
       case 'chat.erro':
         pendentes.delete(e.respostaId);
-        atualizar(e.respostaId, (m) => ({ ...m, estado: 'erro', texto: e.mensagem }));
+        atualizar(e.respostaId, (m) => ({ ...m, estado: 'erro', texto: e.mensagem, teto: e.codigo === 'teto' }));
         useChat.setState({ ocupado: pendentes.size > 0 });
         break;
     }

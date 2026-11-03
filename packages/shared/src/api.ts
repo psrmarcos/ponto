@@ -165,6 +165,9 @@ export type GastoPorOrigem = z.infer<typeof GastoPorOrigem>;
 
 // ---------- Chat ----------
 
+export const LiberarGasto = z.object({ usd: z.number().positive().max(50) });
+export type LiberarGasto = z.infer<typeof LiberarGasto>;
+
 /** O que vai em cada chamada do chat, por parte, para a janela de contexto. */
 export const ParteContexto = z.enum(['instrucoes', 'perfil', 'resumoCall', 'resumoConversa', 'historico', 'transcricao']);
 export type ParteContexto = z.infer<typeof ParteContexto>;
@@ -227,7 +230,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('chat.inicio'), conversaId: z.string(), respostaId: z.string(), modelo: z.string() }),
   z.object({ tipo: z.literal('chat.delta'), respostaId: z.string(), texto: z.string() }),
   z.object({ tipo: z.literal('chat.fim'), respostaId: z.string(), uso: UsoIa.nullable() }),
-  z.object({ tipo: z.literal('chat.erro'), respostaId: z.string(), mensagem: z.string() }),
+  /** `codigo: 'teto'`: a conversa bateu no teto de gasto; a janela oferece liberar mais. */
+  z.object({ tipo: z.literal('chat.erro'), respostaId: z.string(), mensagem: z.string(), codigo: z.enum(['teto']).optional() }),
   z.object({ tipo: z.literal('configuracoes'), configuracoes: Configuracoes }),
   z.object({ tipo: z.literal('uso'), resumo: ResumoUso }),
   z.object({ tipo: z.literal('transcricao.fala'), fala: Fala }),
