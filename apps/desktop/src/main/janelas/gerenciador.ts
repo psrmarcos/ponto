@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { IdJanela, Retangulo } from '@ponto/shared';
 import type { PreferenciasService } from '../preferencias';
 import { DEFINICOES } from './definicoes';
-import { protegerMoldura, limparMoldura } from './moldura-win32';
+import { protegerMoldura } from './moldura-win32';
 import { StealthService } from './stealth';
 import { ZOrderService } from './zorder';
 import { CliqueAtravesService } from './clique-atraves';
@@ -29,7 +29,10 @@ export class GerenciadorJanelas {
       prefs.alterar((p) => (p.stealth = ligado));
       this.aoMudar();
     });
-    this.zorder = new ZOrderService(limparMoldura);
+    // Sem limpeza de moldura a cada segundo: o RedrawWindow periódico (com RDW_INVALIDATE)
+    // repinta as janelas transparentes inteiras e é o suspeito nº 1 das piscadas. A faixa
+    // branca continua sendo limpa nas mensagens de ativação (protegerMoldura).
+    this.zorder = new ZOrderService();
   }
 
   todas(): BrowserWindow[] {
