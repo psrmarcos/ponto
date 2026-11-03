@@ -532,3 +532,4 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .tabela-gastos .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--texto-3); }
 .tabela-gastos .forte { color: var(--texto); font-weight: 600; }
 .tabela-gastos .total td { border-bottom: 0; font-weight: 650; color: var(--texto); }
+.menu.para-cima { top: auto; bottom: 38px; }
