@@ -26,7 +26,7 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
       cliente.close(4401, 'pedido inválido');
       return;
     }
-    const recusa = await this.streaming.abrir(sessaoId, canal.data);
+    const recusa = await this.streaming.abrir(sessaoId, canal.data, () => cliente.close(4000, 'streaming caiu'));
     if (recusa) {
       // 4000: a captura volta para o modo em lote sem tentar de novo.
       cliente.close(4000, recusa.slice(0, 120));

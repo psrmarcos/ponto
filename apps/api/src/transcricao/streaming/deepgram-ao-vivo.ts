@@ -7,7 +7,15 @@ export const USD_POR_MINUTO_STREAMING_MULTI = 0.0092;
 /** Bytes por segundo de PCM 16 kHz, 16 bits, mono. */
 const BYTES_POR_SEGUNDO = 32_000;
 /** O Deepgram fecha a conexão depois de ~10 s sem áudio; o KeepAlive segura. */
-const KEEPALIVE_MS = 4000;
+const KEEPALIVE_MS = 3000;
+const VERIFICAR_KEEPALIVE_MS = 1000;
+/**
+ * Fala corrida (vídeo, apresentação, alguém que não para) quase não tem o
+ * silêncio que o Deepgram usa para fechar a frase. Então fechamos aqui também:
+ * numa pergunta, numa frase completa depois de uns segundos, ou à força.
+ */
+const FECHAR_FRASE_APOS_S = 5;
+const FECHAR_SEMPRE_APOS_S = 14;
 
 interface RespostaDeepgram {
   type?: string;
@@ -94,7 +102,7 @@ export class DeepgramAoVivo {
     });
     this.ws.on('unexpected-response', (_req, res) => {
       const s = res.statusCode ?? 0;
-      this.ouvintes.erro(
+      this.falhar(
         s === 401 || s === 403
           ? 'A chave do Deepgram foi recusada. Confira em Perfil.'
           : s === 402
@@ -107,11 +115,19 @@ export class DeepgramAoVivo {
       clearInterval(this.keepalive);
       this.fecharFala();
       this.aberto = false;
-      if (!this.encerrando && codigo !== 1000) this.ouvintes.erro('A conexão de streaming com o Deepgram caiu.');
+      this.falhar(`A conexão de streaming com o Deepgram caiu (${codigo}).`);
     });
     this.keepalive = setInterval(() => {
       if (this.aberto && Date.now() - this.ultimoEnvio > KEEPALIVE_MS) this.enviarJson({ type: 'KeepAlive' });
-    }, KEEPALIVE_MS);
+    }, VERIFICAR_KEEPALIVE_MS);
+  }
+
+  private avisou = false;
+  /** Um aviso por conexão (o "unexpected-response" e o "close" chegam juntos). */
+  private falhar(mensagem: string): void {
+    if (this.avisou || this.encerrando) return;
+    this.avisou = true;
+    this.ouvintes.erro(mensagem);
   }
 
   get ativo(): boolean {
@@ -174,6 +190,10 @@ export class DeepgramAoVivo {
         this.fimS = start + (r.duration ?? 0);
       }
       if (r.speech_final || r.from_finalize) return this.fecharFala();
+      const duracao = this.fimS - (this.inicioS ?? this.fimS);
+      if (texto && (/\?$/.test(texto) || (/[.!]$/.test(texto) && duracao >= FECHAR_FRASE_APOS_S) || duracao >= FECHAR_SEMPRE_APOS_S)) {
+        return this.fecharFala();
+      }
       if (this.finais.length) this.ouvintes.parcial(this.finais.join(' '), this.paraSessao(this.inicioS ?? start));
       return;
     }

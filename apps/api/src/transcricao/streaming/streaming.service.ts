@@ -35,7 +35,7 @@ export class StreamingService {
   ) {}
 
   /** Abre o streaming de um canal. Devolve o motivo quando não dá (a captura usa o lote). */
-  async abrir(sessaoId: string, canal: CanalAudio): Promise<string | null> {
+  async abrir(sessaoId: string, canal: CanalAudio, aoCair: () => void): Promise<string | null> {
     const config = await this.config.obter();
     if (config.provedorStt !== 'deepgram') return 'O streaming só existe no Deepgram.';
     if (!config.sttStreaming) return 'Streaming desligado nas configurações.';
@@ -48,7 +48,10 @@ export class StreamingService {
       fala: (f) => void this.gravar(id, f),
       erro: (mensagem) => {
         this.log.warn(`${id}: ${mensagem}`);
-        this.eventos.emitir({ tipo: 'transcricao.erro', sessaoId, mensagem });
+        this.eventos.emitir({ tipo: 'transcricao.erro', sessaoId, mensagem: `${mensagem} Seguindo sem streaming.` });
+        // Fecha o lado da captura: ela volta a mandar as falas em lote e nada se perde.
+        this.fechar(id);
+        aoCair();
       },
     });
     this.ligacoes.set(id, { sessaoId, canal, dg, modelo: config.modeloStt });

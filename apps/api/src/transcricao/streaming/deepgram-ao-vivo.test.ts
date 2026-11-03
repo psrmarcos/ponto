@@ -40,4 +40,16 @@ describe('DeepgramAoVivo', () => {
     expect(falas.map((f) => f.texto)).toEqual(['oi']);
     expect(dg.temFalaAberta()).toBe(false);
   });
+
+  it('fecha a fala numa pergunta e em fala corrida sem silêncio', () => {
+    const { dg, falas, receber } = criar();
+    dg.audio(Buffer.alloc(32_000 * 30), 0);
+    receber({ type: 'Results', start: 0, duration: 2, is_final: true, channel: { alternatives: [{ transcript: 'Qual é o prazo?' }] } });
+    expect(falas.map((f) => f.texto)).toEqual(['Qual é o prazo?']);
+    for (let i = 0; i < 8; i++) {
+      receber({ type: 'Results', start: 2 + i * 2, duration: 2, is_final: true, channel: { alternatives: [{ transcript: `trecho ${i} sem fim` }] } });
+    }
+    expect(falas.length).toBe(2);
+    expect(falas[1]!.fimMs - falas[1]!.inicioMs).toBeGreaterThanOrEqual(14_000);
+  });
 });
