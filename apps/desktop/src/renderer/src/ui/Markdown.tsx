@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
+import { realcar } from './realce';
 
 /**
  * Markdown leve para as respostas da IA: parágrafos, listas, **negrito**,
@@ -7,18 +8,24 @@ import { Fragment, type ReactNode } from 'react';
  */
 export function Markdown({ texto }: { texto: string }) {
   const blocos: ReactNode[] = [];
-  const partes = texto.split(/```[^\n]*\n?/);
-  partes.forEach((parte, i) => {
-    if (i % 2 === 1) {
-      blocos.push(
-        <pre key={`c${i}`}>
-          <code>{parte.replace(/\n$/, '')}</code>
-        </pre>,
-      );
-      return;
-    }
-    blocos.push(...paragrafos(parte, i));
-  });
+  // ```lang ... ``` vira bloco de código colorido; o resto, parágrafos e listas.
+  const re = /```([\w+#.-]*)[^\n]*\n?([\s\S]*?)(?:```|$)/g;
+  let ultimo = 0;
+  let n = 0;
+  for (const m of texto.matchAll(re)) {
+    const i = m.index ?? 0;
+    if (i > ultimo) blocos.push(...paragrafos(texto.slice(ultimo, i), n++));
+    const linguagem = m[1] ?? '';
+    const codigo = (m[2] ?? '').replace(/\n$/, '');
+    blocos.push(
+      <pre key={`c${n++}`} className="codigo">
+        {linguagem && <span className="rc-lang">{linguagem}</span>}
+        <code>{realcar(codigo, linguagem)}</code>
+      </pre>,
+    );
+    ultimo = i + m[0].length;
+  }
+  if (ultimo < texto.length) blocos.push(...paragrafos(texto.slice(ultimo), n++));
   return <>{blocos}</>;
 }
 

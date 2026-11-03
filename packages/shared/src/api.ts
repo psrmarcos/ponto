@@ -95,6 +95,38 @@ export const Agente = z.object({
 });
 export type Agente = z.infer<typeof Agente>;
 
+/** Criar ou editar um agente seu (os embutidos não mudam; dá para duplicar). */
+export const EdicaoAgente = Agente.pick({ nome: true, descricao: true, prompt: true, modelo: true }).extend({
+  nome: z.string().trim().min(1).max(60),
+  prompt: z.string().trim().min(1).max(8000),
+  descricao: z.string().trim().max(200).default(''),
+  modelo: z.string().trim().min(1).nullable().default(null),
+});
+export type EdicaoAgente = z.infer<typeof EdicaoAgente>;
+
+/** Uma troca do chat guardada (para rever a conversa de uma sessão). */
+export const MensagemSalva = z.object({
+  id: z.string(),
+  conversaId: z.string(),
+  papel: z.enum(['eu', 'ia']),
+  texto: z.string(),
+  criadoEm: z.number(),
+  /** Detectada sozinha na call (Jev), não foi você que perguntou. */
+  automatica: z.boolean(),
+  modelo: z.string().nullable(),
+  custoUsd: z.number().nullable(),
+});
+export type MensagemSalva = z.infer<typeof MensagemSalva>;
+
+/** Gasto de uma sessão por tipo de uso (chat, transcricao, decisao, resumo, compactacao). */
+export const GastoPorOrigem = z.object({
+  origem: z.string(),
+  custoUsd: z.number(),
+  chamadas: z.number().int(),
+  tokens: z.number().int(),
+});
+export type GastoPorOrigem = z.infer<typeof GastoPorOrigem>;
+
 // ---------- Chat ----------
 
 export const PedidoChat = z.object({
@@ -148,6 +180,8 @@ export const EventoWs = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('transcricao.limpa'), sessaoId: z.string(), ateMs: z.number() }),
   /** O app detectou uma pergunta para o usuário e já começou a responder (chat.* com este respostaId). */
   z.object({ tipo: z.literal('sugestao.nova'), sessaoId: z.string(), respostaId: z.string(), pergunta: z.string() }),
+  /** A lista de agentes mudou (criado, editado, apagado). */
+  z.object({ tipo: z.literal('agentes'), agentes: z.array(Agente) }),
   z.object({ tipo: z.literal('transcricao.erro'), sessaoId: z.string(), mensagem: z.string() }),
   /** Ata da sessão: começou a ser gerada, ficou pronta ou falhou. */
   z.object({

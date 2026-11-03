@@ -31,5 +31,6 @@ export function iniciarDominio(): void {
   api.ouvir((e) => {
     if (e.tipo === 'configuracoes') useDominio.setState({ configuracoes: e.configuracoes });
     if (e.tipo === 'uso') useDominio.setState({ uso: e.resumo });
+    if (e.tipo === 'agentes') useDominio.setState({ agentes: e.agentes });
   });
 }

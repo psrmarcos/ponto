@@ -42,6 +42,8 @@ export const SessaoNaLista = Sessao.omit({ resumo: true }).extend({
   duracaoMs: z.number().int(),
   temResumo: z.boolean(),
   gerandoResumo: z.boolean(),
+  /** Tudo que a sessão gastou (transcrição, chat, Jev, ata). */
+  custoUsd: z.number(),
 });
 export type SessaoNaLista = z.infer<typeof SessaoNaLista>;
 

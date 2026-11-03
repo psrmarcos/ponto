@@ -60,14 +60,15 @@ export class ChatService {
   ) {}
 
   /** Começa a responder em segundo plano e devolve o id da resposta na hora. */
-  async enviar(pedido: PedidoChat): Promise<{ respostaId: string }> {
+  /** `rotulo`: como a pergunta aparece no histórico salvo (ex.: a pergunta detectada na call). */
+  async enviar(pedido: PedidoChat, opcoes: { rotulo?: string } = {}): Promise<{ respostaId: string }> {
     const { respostaId } = pedido;
     const conversa = this.conversa(pedido.conversaId);
     // Pergunta nova cancela a anterior da mesma conversa: não pagamos por resposta que ninguém vai ler.
     conversa.emAndamento?.abort();
     const controle = new AbortController();
     conversa.emAndamento = controle;
-    void this.responder(pedido, respostaId, conversa, controle);
+    void this.responder(pedido, respostaId, conversa, controle, opcoes.rotulo);
     return { respostaId };
   }
 
@@ -110,6 +111,19 @@ export class ChatService {
     return { texto, cursorMs };
   }
 
+  /** Guarda a troca para rever depois na sessão. Falhar aqui não pode estragar a resposta. */
+  private async guardar(pedido: PedidoChat, pergunta: string, resposta: string, uso: UsoIa | null): Promise<void> {
+    const automatica = pedido.conversaId.startsWith('auto:');
+    const base = { sessaoId: pedido.sessaoId ?? null, conversaId: pedido.conversaId, automatica };
+    const comImagem = pedido.imagens.length ? `🖼 ${pedido.imagens.length} imagem(ns)\n` : '';
+    try {
+      await this.sessoes.salvarMensagem({ ...base, papel: 'eu', texto: comImagem + pergunta, modelo: null, custoUsd: null });
+      await this.sessoes.salvarMensagem({ ...base, papel: 'ia', texto: resposta, modelo: uso?.modelo ?? null, custoUsd: uso?.custoUsd ?? null });
+    } catch (e) {
+      this.log.warn(`não guardou a conversa: ${(e as Error).message}`);
+    }
+  }
+
   cancelar(conversaId: string): void {
     this.conversas.get(conversaId)?.emAndamento?.abort();
   }
@@ -123,7 +137,7 @@ export class ChatService {
     return c;
   }
 
-  private async responder(pedido: PedidoChat, respostaId: string, conversa: Conversa, controle: AbortController) {
+  private async responder(pedido: PedidoChat, respostaId: string, conversa: Conversa, controle: AbortController, rotulo?: string) {
     let acumulado = '';
     let pendente = '';
     let timer: NodeJS.Timeout | null = null;
@@ -200,6 +214,7 @@ export class ChatService {
         await this.uso.registrar({ provedor: provedor.id, origem: 'chat', sessaoId: pedido.sessaoId ?? null, uso });
       }
       this.eventos.emitir({ tipo: 'chat.fim', respostaId, uso });
+      await this.guardar(pedido, rotulo ?? perguntaPura, acumulado, uso);
     } catch (e) {
       if (timer) clearTimeout(timer);
       if (controle.signal.aborted) {

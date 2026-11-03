@@ -122,7 +122,7 @@
 
   .mensagens {
     display: flex; flex-direction: column; gap: 8px;
-    max-height: 220px; overflow-y: auto;
+    max-height: 330px; overflow-y: auto;
     padding: 2px 4px;
     user-select: text;
   }
@@ -495,3 +495,40 @@ li.md-tarefa { list-style: none; margin-left: -18px; }
 .barra .chip svg { flex: none; }
 .barra .chip-texto { min-width: 0; max-width: 140px; }
 .barra > .espaco { flex: 1 1 0; min-width: 0; }
+
+/* ---------- Código colorido e miniaturas no chat ---------- */
+.msg pre.codigo { position: relative; line-height: 1.5; color: #D6DEEB; }
+.rc-lang { position: absolute; top: 4px; right: 8px; font-size: 10.5px; color: var(--texto-3); text-transform: lowercase; font-family: inherit; }
+.rc-kw { color: #C792EA; }
+.rc-str { color: #ECC48D; }
+.rc-num { color: #F78C6C; }
+.rc-com { color: #7A8599; font-style: italic; }
+.rc-fn { color: #82AAFF; }
+.rc-tipo { color: #7FDBCA; }
+.miniaturas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.msg .miniatura { padding: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--borda-forte); background: rgba(0,0,0,0.3); cursor: zoom-in; display: block; }
+.msg .miniatura img { display: block; height: 64px; width: auto; max-width: 160px; object-fit: cover; }
+.msg .miniatura.grande { cursor: zoom-out; }
+.msg .miniatura.grande img { height: auto; max-height: 300px; max-width: 100%; object-fit: contain; }
+.msg.eu:has(.miniatura.grande) { max-width: 100%; }
+
+/* ---------- Editor de agente ---------- */
+.editor-agente { margin-bottom: 4px; }
+.campo-agente { display: flex; flex-direction: column; gap: 5px; padding: 0 14px 10px; font-size: 12px; color: var(--texto-3); }
+.campo-agente .campo-texto { width: 100%; }
+.campo-agente small { align-self: flex-end; font-size: 11px; }
+.prompt-agente { min-height: 140px; resize: vertical; padding: 8px 10px; line-height: 1.45; font: inherit; font-size: 13px; }
+.agente-card .sessao-acoes .btn-sec { height: 28px; }
+
+/* ---------- Abas da sessão ---------- */
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--borda); }
+.aba { padding: 7px 10px; font-size: 12.5px; font-weight: 600; color: var(--texto-3); background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.aba:hover { color: var(--texto-2); }
+.aba[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--azul); }
+.sessao-vazio { color: var(--texto-3); font-size: 13px; margin: 4px 0; }
+.conversa-salva { display: flex; flex-direction: column; gap: 8px; max-width: 720px; max-height: 460px; overflow-y: auto; padding-right: 4px; user-select: text; font-size: 13px; }
+.tabela-gastos { border-collapse: collapse; font-size: 13px; max-width: 640px; width: 100%; }
+.tabela-gastos td { padding: 8px 6px; border-bottom: 1px solid var(--borda); color: var(--texto-2); }
+.tabela-gastos .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--texto-3); }
+.tabela-gastos .forte { color: var(--texto); font-weight: 600; }
+.tabela-gastos .total td { border-bottom: 0; font-weight: 650; color: var(--texto); }

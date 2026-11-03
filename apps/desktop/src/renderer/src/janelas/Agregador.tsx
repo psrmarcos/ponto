@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   ArrowRight,
   Brain,
@@ -165,13 +165,18 @@ function Mensagens() {
   const ref = useRef<HTMLDivElement>(null);
   const ultima = mensagens.at(-1);
 
-  // Rola para o fim enquanto a resposta chega, a menos que a pessoa tenha subido para ler.
-  useEffect(() => {
+  // Mensagem nova (pergunta sua ou detectada na call): vai sempre para o fim.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [mensagens.length]);
+  // Enquanto a resposta chega, acompanha, a menos que a pessoa tenha subido para ler.
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const perto = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const perto = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
     if (perto) el.scrollTop = el.scrollHeight;
-  }, [mensagens.length, ultima?.texto]);
+  }, [ultima?.texto]);
 
   return (
     <div className="mensagens" ref={ref}>
@@ -196,7 +201,13 @@ function Balao({ m }: { m: Mensagem }) {
   if (m.papel === 'eu') {
     return (
       <div className="msg eu">
-        {m.imagens?.length ? `🖼 ${m.imagens.length} imagem(ns) · ` : ''}
+        {m.imagens?.length ? (
+          <div className="miniaturas">
+            {m.imagens.map((src, i) => (
+              <Miniatura key={i} src={src} />
+            ))}
+          </div>
+        ) : null}
         {m.texto}
       </div>
     );
@@ -212,6 +223,16 @@ function Balao({ m }: { m: Mensagem }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Prévia pequena da imagem enviada; clique amplia dentro do chat. */
+function Miniatura({ src }: { src: string }) {
+  const [grande, setGrande] = useState(false);
+  return (
+    <button type="button" className={`miniatura${grande ? ' grande' : ''}`} aria-label={grande ? 'Reduzir imagem' : 'Ampliar imagem'} onClick={() => setGrande((g) => !g)}>
+      <img alt="" src={src} />
+    </button>
   );
 }
 

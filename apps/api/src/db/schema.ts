@@ -67,3 +67,20 @@ export const usoIa = sqliteTable(
   },
   (t) => [index('uso_criado_idx').on(t.criadoEm)],
 );
+
+/** O que foi perguntado e respondido no chat, para rever depois (principalmente por sessão). */
+export const mensagensChat = sqliteTable(
+  'mensagens_chat',
+  {
+    id: text('id').primaryKey(),
+    sessaoId: text('sessao_id').references(() => sessoes.id, { onDelete: 'cascade' }),
+    conversaId: text('conversa_id').notNull(),
+    papel: text('papel', { enum: ['eu', 'ia'] }).notNull(),
+    texto: text('texto').notNull(),
+    automatica: integer('automatica', { mode: 'boolean' }).notNull().default(false),
+    modelo: text('modelo'),
+    custoUsd: real('custo_usd'),
+    criadoEm: integer('criado_em', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [index('mensagens_sessao_idx').on(t.sessaoId, t.criadoEm)],
+);

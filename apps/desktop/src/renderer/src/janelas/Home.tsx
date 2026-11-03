@@ -7,6 +7,7 @@ import { Logo } from '../ui/Logo';
 import { Configuracoes } from './home/Configuracoes';
 import { Perfil } from './home/Perfil';
 import { Sessoes } from './home/Sessoes';
+import { Agentes } from './home/Agentes';
 
 type Secao = 'inicio' | 'sessoes' | 'agentes' | 'config' | 'perfil' | 'sobre';
 
@@ -111,38 +112,6 @@ function Inicio({ irPara }: { irPara: (s: Secao) => void }) {
           <span className="rot">Tokens no mês</span>
           <span className="val">{formatarNumero(uso?.tokensMes ?? 0)}</span>
         </div>
-      </div>
-    </>
-  );
-}
-
-function Agentes() {
-  const agentes = useDominio((s) => s.agentes);
-  const ativo = useDominio((s) => s.configuracoes?.agenteAtivo);
-  const salvar = useDominio((s) => s.salvarConfiguracoes);
-  return (
-    <>
-      <h2>Agentes</h2>
-      <p className="lead">Cada agente tem seu próprio prompt e pode usar um modelo diferente. Criar e editar agentes vem em breve.</p>
-      <div className="agentes-grid">
-        {agentes.map((a) => (
-          <div className="agente-card" key={a.id}>
-            <div className="topo">
-              <span className="ico">
-                <Robot size={16} />
-              </span>
-              <span className="t1">{a.nome}</span>
-              <span className="espaco" />
-              <span className="tag">{a.embutido ? 'Built-in' : 'Seu'}</span>
-            </div>
-            <div className="t2">{a.descricao}</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button type="button" className="btn-sec" disabled={a.id === ativo} onClick={() => void salvar({ agenteAtivo: a.id })}>
-                {a.id === ativo ? 'Em uso' : 'Usar'}
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
     </>
   );

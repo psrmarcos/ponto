@@ -64,6 +64,6 @@ export class SugestoesService implements OnModuleInit {
       raciocinio: false,
       imagens: [],
       sessaoId: f.sessaoId,
-    });
+    }, { rotulo: `Te perguntaram: ${f.texto}` });
   }
 }

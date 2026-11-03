@@ -1,10 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, count, desc, eq, gt, lte, max } from 'drizzle-orm';
-import type { CanalAudio, Fala, Sessao, SessaoNaLista } from '@ponto/shared';
+import { and, asc, count, desc, eq, gt, inArray, lte, max, sql, sum } from 'drizzle-orm';
+import type { CanalAudio, Fala, GastoPorOrigem, MensagemSalva, Sessao, SessaoNaLista } from '@ponto/shared';
 import { novoId } from '../comum/id';
 import { BANCO } from '../db/db.module';
 import type { Banco } from '../db/conexao';
-import { falas, sessoes } from '../db/schema';
+import { falas, mensagensChat, sessoes, usoIa } from '../db/schema';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 import { EventosService } from '../eventos/eventos.service';
 
@@ -84,9 +84,19 @@ export class SessoesService {
       .groupBy(sessoes.id)
       .orderBy(desc(sessoes.iniciadaEm))
       .limit(limite);
+    const ids = linhas.map((l) => l.id);
+    const gastos = ids.length
+      ? await this.banco
+          .select({ sessaoId: usoIa.sessaoId, custo: sum(usoIa.custoUsd) })
+          .from(usoIa)
+          .where(inArray(usoIa.sessaoId, ids))
+          .groupBy(usoIa.sessaoId)
+      : [];
+    const custoPor = new Map(gastos.map((g) => [g.sessaoId, Number(g.custo ?? 0)]));
     return linhas
       .filter((l) => l.totalFalas > 0 || l.resumo)
       .map((l) => ({
+        custoUsd: custoPor.get(l.id) ?? 0,
         id: l.id,
         titulo: l.titulo,
         agenteId: l.agenteId,
@@ -97,6 +107,36 @@ export class SessoesService {
         temResumo: !!l.resumo,
         gerandoResumo: this.gerandoResumo.has(l.id),
       }));
+  }
+
+  /** Quanto a sessão gastou, separado por tipo de uso. */
+  async gastos(sessaoId: string): Promise<GastoPorOrigem[]> {
+    const linhas = await this.banco
+      .select({
+        origem: usoIa.origem,
+        custo: sum(usoIa.custoUsd),
+        chamadas: count(usoIa.id),
+        tokens: sql<number>`sum(${usoIa.tokensEntrada} + ${usoIa.tokensSaida})`,
+      })
+      .from(usoIa)
+      .where(eq(usoIa.sessaoId, sessaoId))
+      .groupBy(usoIa.origem);
+    return linhas
+      .map((l) => ({ origem: l.origem, custoUsd: Number(l.custo ?? 0), chamadas: l.chamadas, tokens: Number(l.tokens ?? 0) }))
+      .sort((a, b) => b.custoUsd - a.custoUsd);
+  }
+
+  async salvarMensagem(m: Omit<MensagemSalva, 'id' | 'criadoEm'> & { sessaoId: string | null }): Promise<void> {
+    await this.banco.insert(mensagensChat).values({ id: novoId(), criadoEm: new Date(), ...m });
+  }
+
+  async conversa(sessaoId: string): Promise<MensagemSalva[]> {
+    const linhas = await this.banco
+      .select()
+      .from(mensagensChat)
+      .where(eq(mensagensChat.sessaoId, sessaoId))
+      .orderBy(asc(mensagensChat.criadoEm));
+    return linhas.map(({ sessaoId: _s, criadoEm, ...m }) => ({ ...m, criadoEm: criadoEm.getTime() }));
   }
 
   async renomear(id: string, titulo: string): Promise<void> {

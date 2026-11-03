@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowClockwise, CaretRight, Copy, DownloadSimple, FolderOpen, Trash } from '@phosphor-icons/react';
-import type { Sessao, SessaoNaLista } from '@ponto/shared';
+import type { GastoPorOrigem, MensagemSalva, Sessao, SessaoNaLista } from '@ponto/shared';
 import { api } from '../../api/cliente';
 import { Markdown } from '../../ui/Markdown';
 
@@ -71,6 +71,7 @@ function ItemSessao({
   const [detalhe, setDetalhe] = useState<Sessao | null>(null);
   const [aviso, setAviso] = useState<{ texto: string; caminho?: string } | null>(null);
   const [confirmarApagar, setConfirmarApagar] = useState(false);
+  const [aba, setAba] = useState<'ata' | 'conversa' | 'gastos'>('ata');
 
   // Recarrega a ata quando abre e quando ela muda (gerada ou refeita).
   useEffect(() => {
@@ -117,6 +118,7 @@ function ItemSessao({
           <span className="t1">{sessao.titulo}</span>
           <span className="t2">
             {quando(sessao.iniciadaEm)} · {relogio(sessao.duracaoMs)} · {sessao.totalFalas} falas
+            {sessao.custoUsd > 0 && ` · US$ ${dinheiro(sessao.custoUsd)}`}
             {!sessao.encerradaEm && ' · em andamento'}
           </span>
         </span>
@@ -165,21 +167,97 @@ function ItemSessao({
               )}
             </div>
           )}
-          <div className="sessao-ata">
-            {detalhe?.resumo ? (
-              <Markdown texto={detalhe.resumo} />
-            ) : sessao.gerandoResumo ? (
-              <p className="t2">Escrevendo a ata da call…</p>
-            ) : (
-              <p className="t2">
-                {sessao.totalFalas < 4 ? 'Call curta demais para uma ata automática. Dá para gerar mesmo assim.' : 'Sem ata ainda.'}
-              </p>
-            )}
+          <div className="abas" role="tablist">
+            {(['ata', 'conversa', 'gastos'] as const).map((a) => (
+              <button type="button" key={a} role="tab" aria-selected={aba === a} className="aba" onClick={() => setAba(a)}>
+                {a === 'ata' ? 'Ata' : a === 'conversa' ? 'Conversa com a IA' : `Gastos · US$ ${dinheiro(sessao.custoUsd)}`}
+              </button>
+            ))}
           </div>
+          {aba === 'ata' && (
+            <div className="sessao-ata">
+              {detalhe?.resumo ? (
+                <Markdown texto={detalhe.resumo} />
+              ) : sessao.gerandoResumo ? (
+                <p className="t2">Escrevendo a ata da call…</p>
+              ) : (
+                <p className="t2">
+                  {sessao.totalFalas < 4 ? 'Call curta demais para uma ata automática. Dá para gerar mesmo assim.' : 'Sem ata ainda.'}
+                </p>
+              )}
+            </div>
+          )}
+          {aba === 'conversa' && <Conversa sessaoId={sessao.id} />}
+          {aba === 'gastos' && <Gastos sessaoId={sessao.id} total={sessao.custoUsd} />}
         </div>
       )}
     </div>
   );
+}
+
+function Conversa({ sessaoId }: { sessaoId: string }) {
+  const [msgs, setMsgs] = useState<MensagemSalva[] | null>(null);
+  useEffect(() => {
+    api.get<MensagemSalva[]>(`/sessoes/${sessaoId}/conversa`).then(setMsgs).catch(() => setMsgs([]));
+  }, [sessaoId]);
+  if (!msgs) return <p className="t2">Carregando…</p>;
+  if (!msgs.length) return <p className="t2 sessao-vazio">Nenhuma pergunta ao chat durante esta sessão.</p>;
+  return (
+    <div className="conversa-salva">
+      {msgs.map((m) => (
+        <div key={m.id} className={`msg ${m.papel}${m.automatica && m.papel === 'eu' ? ' detectada' : ''}`}>
+          {m.papel === 'ia' ? <Markdown texto={m.texto || '(sem resposta)'} /> : m.texto}
+          <div className="rodape-msg">
+            {new Date(m.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {m.modelo && ` · ${m.modelo}`}
+            {m.custoUsd !== null && ` · US$ ${dinheiro(m.custoUsd)}`}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const NOMES_ORIGEM: Record<string, string> = {
+  chat: 'Chat (suas perguntas e sugestões)',
+  transcricao: 'Transcrição',
+  decisao: 'Jev (detectar perguntas)',
+  resumo: 'Ata',
+  compactacao: 'Resumo contínuo da call',
+};
+
+function Gastos({ sessaoId, total }: { sessaoId: string; total: number }) {
+  const [linhas, setLinhas] = useState<GastoPorOrigem[] | null>(null);
+  useEffect(() => {
+    api.get<GastoPorOrigem[]>(`/sessoes/${sessaoId}/gastos`).then(setLinhas).catch(() => setLinhas([]));
+  }, [sessaoId, total]);
+  if (!linhas) return <p className="t2">Carregando…</p>;
+  if (!linhas.length) return <p className="t2 sessao-vazio">Nada gasto nesta sessão.</p>;
+  return (
+    <table className="tabela-gastos">
+      <tbody>
+        {linhas.map((l) => (
+          <tr key={l.origem}>
+            <td>{NOMES_ORIGEM[l.origem] ?? l.origem}</td>
+            <td className="num">{l.chamadas} {l.chamadas === 1 ? 'chamada' : 'chamadas'}</td>
+            <td className="num">{l.tokens.toLocaleString('pt-BR')} tokens</td>
+            <td className="num forte">US$ {dinheiro(l.custoUsd)}</td>
+          </tr>
+        ))}
+        <tr className="total">
+          <td>Total</td>
+          <td />
+          <td />
+          <td className="num forte">US$ {dinheiro(linhas.reduce((n, l) => n + l.custoUsd, 0))}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+/** Centavos de dólar somem com 2 casas; aqui mostra 4 quando é pouco. */
+function dinheiro(v: number): string {
+  return v >= 1 ? v.toFixed(2) : v.toFixed(4);
 }
 
 function nomeArquivo(s: SessaoNaLista): string {

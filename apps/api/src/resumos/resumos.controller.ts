@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post } from '@nestjs/common';
-import { EdicaoSessao, type SessaoNaLista } from '@ponto/shared';
+import { EdicaoSessao, type GastoPorOrigem, type MensagemSalva, type SessaoNaLista } from '@ponto/shared';
 import { ZodPipe } from '../comum/zod.pipe';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 import { SessoesService } from '../sessoes/sessoes.service';
@@ -36,6 +36,16 @@ export class ResumosController {
   @HttpCode(202)
   gerarResumo(@Param('id') id: string): void {
     void this.ata.gerar(id, true);
+  }
+
+  @Get(':id/gastos')
+  gastos(@Param('id') id: string): Promise<GastoPorOrigem[]> {
+    return this.sessoes.gastos(id);
+  }
+
+  @Get(':id/conversa')
+  conversa(@Param('id') id: string): Promise<MensagemSalva[]> {
+    return this.sessoes.conversa(id);
   }
 
   @Get(':id/markdown')
