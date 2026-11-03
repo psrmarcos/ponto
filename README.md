@@ -58,6 +58,7 @@ docs/             decisões e pesquisas (economia de tokens, Jev)
 | Tela | Ctrl+Shift+E |
 | Home | Ctrl+Shift+O |
 | Ler a tela | Ctrl+Shift+S |
+| Fechar o app | Ctrl+Shift+Q |
 
 Todos podem ser trocados em Home → Configurações.
 

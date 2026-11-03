@@ -64,6 +64,7 @@ function iniciar(): void {
         const w = janelas.obter('tela');
         if (w) emitir(w.webContents, 'tela.ler', undefined);
       },
+      sair: () => app.quit(),
     },
     difundir,
   );

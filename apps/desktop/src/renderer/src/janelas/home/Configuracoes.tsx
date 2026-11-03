@@ -12,6 +12,7 @@ const ROTULOS_ATALHO: Record<AcaoAtalho, string> = {
   alternarTela: 'Painel da tela',
   alternarHome: 'Abrir a Home',
   lerTela: 'Ler a tela agora',
+  sair: 'Fechar o app',
 };
 
 export function Configuracoes() {

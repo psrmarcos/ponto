@@ -10,6 +10,7 @@ export const AcaoAtalho = z.enum([
   'alternarTela',
   'alternarHome',
   'lerTela',
+  'sair',
 ]);
 export type AcaoAtalho = z.infer<typeof AcaoAtalho>;
 
@@ -20,6 +21,7 @@ export const ATALHOS_PADRAO: Record<AcaoAtalho, string> = {
   alternarTela: 'CommandOrControl+Shift+E',
   alternarHome: 'CommandOrControl+Shift+O',
   lerTela: 'CommandOrControl+Shift+S',
+  sair: 'CommandOrControl+Shift+Q',
 };
 
 export const StatusApi = z.enum(['iniciando', 'pronta', 'caiu']);

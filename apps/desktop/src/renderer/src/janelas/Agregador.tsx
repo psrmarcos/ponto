@@ -18,6 +18,7 @@ import {
   Monitor,
   NotePencil,
   Play,
+  Power,
   Robot,
   ScanSmiley,
   SignOut,
@@ -96,6 +97,16 @@ function Pilula({ chatVisivel, alternarChat }: { chatVisivel: boolean; alternarC
       </button>
       <button type="button" className="btn-redondo" aria-pressed={tela} title="Tela" onClick={() => abrir('tela')}>
         <Monitor size={15} weight="bold" />
+      </button>
+      <span className="div-pilula" aria-hidden="true" />
+      <button
+        type="button"
+        className="btn-redondo sair"
+        aria-label="Fechar o app"
+        title="Fechar o app (Ctrl+Shift+Q)"
+        onClick={() => void window.ponto.invocar('app.sair')}
+      >
+        <Power size={15} weight="bold" />
       </button>
     </div>
   );
