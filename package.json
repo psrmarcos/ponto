@@ -1,0 +1,23 @@
+{
+  "name": "ponto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Copiloto de IA local-first e open-source para calls",
+  "license": "MIT",
+  "packageManager": "pnpm@10.12.1",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "dev": "turbo run build --filter=@ponto/shared --filter=@ponto/api && pnpm --filter @ponto/desktop dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:gerar": "pnpm --filter @ponto/api db:gerar"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "esbuild", "koffi"]
+  }
+}
