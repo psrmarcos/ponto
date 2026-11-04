@@ -56,7 +56,6 @@ export function Home() {
   );
 }
 
-/** Custom titlebar for a standard window: drags across the bar, double-click maximizes. */
 function WindowBar() {
   const [maximized, setMaximized] = useState(false);
   const control = (action: 'minimize' | 'maximize' | 'state') =>
@@ -64,7 +63,6 @@ function WindowBar() {
 
   useEffect(() => {
     control('state');
-    // Maximizing via Windows (Win+Up, aero snap) also updates the button icon.
     const onResize = () => control('state');
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);

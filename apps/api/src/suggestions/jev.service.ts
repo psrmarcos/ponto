@@ -3,15 +3,9 @@ import { http } from '../common/http';
 import { SecretsService } from '../secrets/secrets.service';
 import { UsageService } from '../usage/usage.service';
 
-/** Pinned version: the "latest" alias shifts thresholds without notice. */
 export const JEV_MODEL = 'typesafe/jev-1.14';
 const TIMEOUT_MS = 2500;
 
-/**
- * Jev, the "System 1": a decision model (does not generate text) that answers
- * typed questions with probabilities in ~0.3s and costs ~US$ 0.000014 per call.
- * Used to decide whether to spend a full LLM response.
- */
 @Injectable()
 export class JevService {
   private readonly log = new Logger('Jev');
@@ -21,7 +15,6 @@ export class JevService {
     private readonly usage: UsageService,
   ) {}
 
-  /** Probability that the latest utterance is a question directed at the user. null = Jev unavailable. */
   async isQuestionForMe(state: string, sessionId: string): Promise<number | null> {
     const key = this.secrets.get('openrouter');
     if (!key) return null;

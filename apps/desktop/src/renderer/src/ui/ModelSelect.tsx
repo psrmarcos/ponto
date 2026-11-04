@@ -9,10 +9,6 @@ const RECENT_MODELS_KEY = 'ponto.recentModels';
 const MAX_RECENT = 6;
 const MAX_RESULTS = 40;
 
-/**
- * Chip in the chat toolbar to switch the response model without opening Home.
- * Updates the default model (applies to subsequent questions across all windows).
- */
 export function ModelSelect() {
   const current = useDomain((s) => s.settings?.defaultModel ?? '');
   const saveSettings = useDomain((s) => s.saveSettings);
@@ -30,8 +26,7 @@ export function ModelSelect() {
       .then(setModels)
       .catch(() => setError(true));
   };
-  // Load in the background so the friendly display name appears on the chip.
-  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, []);
 
   const byId = useMemo(() => new Map((models ?? []).map((m) => [m.id, m])), [models]);
 
@@ -130,7 +125,6 @@ export function ModelSelect() {
   );
 }
 
-/** "Google: Gemini 3.8 Flash" becomes "Gemini 3.8 Flash"; a raw id becomes the part after the slash. */
 function shortName(name: string): string {
   const withoutProvider = name.includes(': ') ? name.slice(name.indexOf(': ') + 2) : name;
   return withoutProvider.includes('/') ? withoutProvider.slice(withoutProvider.indexOf('/') + 1) : withoutProvider;
@@ -152,6 +146,5 @@ function writeRecentModels(ids: string[]): void {
   try {
     localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(ids));
   } catch {
-    /* storage unavailable: simply don't persist recent models */
   }
 }

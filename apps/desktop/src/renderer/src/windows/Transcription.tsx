@@ -27,10 +27,6 @@ import { Select } from '../ui/Select';
 
 const sendCommand = (action: 'start' | 'pause' | 'resume' | 'stop') => void window.ponto.invoke('capture.command', { action });
 
-/**
- * Live transcription window: microphone audio appears as you, computer audio
- * as the other participants. Does not join the meeting as a bot.
- */
 export function Transcription() {
   const capture = useCapture();
   const utterances = useTranscription((s) => s.utterances);
@@ -66,7 +62,6 @@ export function Transcription() {
   );
 }
 
-/** After ending a session: notifies that the call minutes are being written and where to find them. */
 function MinutesNotice() {
   const [status, setStatus] = useState<'generating' | 'ready' | 'error' | null>(null);
   useEffect(
@@ -124,7 +119,6 @@ function UtteranceList({ utterances, recording, stopped }: { utterances: Utteran
     (a, b) => a[1].startMs - b[1].startMs,
   );
 
-  // Follow the bottom of the transcript unless the user scrolled up to read earlier utterances.
   useLayoutEffect(() => {
     const el = bodyRef.current;
     if (el && pinnedToBottom) el.scrollTop = el.scrollHeight;
@@ -195,7 +189,6 @@ function UtteranceList({ utterances, recording, stopped }: { utterances: Utteran
   );
 }
 
-/** Translation (and phrasing correction in learning mode) displayed underneath the original text. */
 function Translations({ utterances, translations }: { utterances: Utterance[]; translations: Record<string, UtteranceTranslation> }) {
   const items = utterances.map((u) => translations[u.id]).filter((t): t is UtteranceTranslation => !!t);
   const text = items.map((t) => t.text).filter(Boolean).join(' ');
@@ -217,7 +210,6 @@ function Translations({ utterances, translations }: { utterances: Utterance[]; t
   );
 }
 
-/** Configures real-time translation: target language, speaker filter, and learning mode. */
 function TranslationMenu() {
   const settings = useDomain((s) => s.settings);
   const saveSettings = useDomain((s) => s.saveSettings);
@@ -364,10 +356,6 @@ function Footer() {
   );
 }
 
-/**
- * Clearing removes the transcript (including from chat context), so it asks for
- * a second click to confirm and still allows undoing for a few seconds.
- */
 function ClearButton() {
   const hasUtterances = useTranscription((s) => s.utterances.length > 0);
   const clear = useTranscription((s) => s.clear);
@@ -417,7 +405,6 @@ function UndoBar() {
   );
 }
 
-/** Consecutive utterances from the same channel & speaker within 4 s are merged into a single bubble. */
 function groupUtterances(utterances: Utterance[]): Utterance[][] {
   const groups: Utterance[][] = [];
   for (const u of utterances) {

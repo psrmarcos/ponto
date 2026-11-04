@@ -1,8 +1,3 @@
-/*
- * Ponto visual theme (tokens, control pill, chat, floating panels, Home).
- * Tailwind is imported without preflight so it doesn't alter base styles; use
- * Tailwind utilities for new layouts and the custom properties below (`var(--...)`) for colors.
- */
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
@@ -39,7 +34,6 @@
   button { font: inherit; color: inherit; background: none; border: 0; cursor: default; }
   svg { display: block; }
 
-  /* Everything marked `.solid` receives mouse events. The rest of the window is transparent and lets clicks pass through. */
   .solid { pointer-events: auto; }
 
   .stage {
@@ -48,7 +42,6 @@
     padding-top: 6px;
   }
 
-  /* ---------- Control pill ---------- */
   .pill {
     display: flex; align-items: center; gap: 4px;
     padding: 5px 6px 5px 4px;
@@ -93,7 +86,6 @@
   .dot.paused { background: var(--text-3); animation: none; }
   @keyframes pulse { 50% { opacity: 0.35; } }
 
-  /* ---------- Chat (below the pill) ---------- */
   .chat {
     margin-top: 12px;
     width: 560px;
@@ -157,7 +149,6 @@
     user-select: text;
   }
   textarea::placeholder { color: var(--text-3); }
-  /* Keycap style: border and raised bottom edge like a physical key. */
   kbd {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 20px; height: 20px; padding: 0 6px;
@@ -197,10 +188,8 @@
   }
   .send-btn:hover { background: var(--grad-blue-hover); }
 
-  /* ---------- Agent selector ---------- */
   .menu.agents { width: 290px; }
 
-  /* ---------- Model selector ---------- */
   .chip.icon-only { width: 30px; padding: 0; justify-content: center; }
   .chip-text { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .menu.models { width: 330px; }
@@ -223,7 +212,6 @@
   .agent-item .check { margin-left: auto; color: #8FB0FF; visibility: hidden; padding-top: 2px; }
   .agent-item[aria-checked="true"] .check { visibility: visible; }
 
-  /* ---------- Anchored popover menu ---------- */
   .anchor { position: relative; }
   .menu {
     position: absolute; left: 0; top: 38px; z-index: 10;
@@ -261,7 +249,6 @@
   .round-btn[aria-pressed="true"] { background: var(--grad-blue-soft); color: #CFDBFF; }
   .pill-divider { width: 1px; height: 18px; background: var(--border-strong); margin: 0 4px; }
 
-  /* ---------- Floating panels (Transcription and Screen) ---------- */
   .panel-window { height: 100%; padding: 8px; }
   .panel {
     flex: 1; min-height: 0;
@@ -323,7 +310,6 @@
   .primary-btn kbd { background: rgba(255,255,255,0.2); color: #fff; }
   .option-label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
 
-  /* ---------- Custom scrollbar ---------- */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -335,8 +321,7 @@
   ::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.26); }
   ::-webkit-scrollbar-corner { background: transparent; }
 
-  /* ---------- Home ---------- */
-  body[data-window="home"] .panel { background: #16161B; border: 0; border-radius: 0; } /* Opaque Home: OS window already has rounded corners */
+  body[data-window="home"] .panel { background: #16161B; border: 0; border-radius: 0; } 
   body[data-window="home"] .panel-window { padding: 0; }
   .home { flex: 1; min-height: 0; display: flex; }
   .sidebar { width: 200px; flex: none; padding: 12px 10px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
@@ -384,7 +369,6 @@
   .agent-card .t1 { font-weight: 650; }
   .agent-card .t2 { font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
 
-  /* ---------- App additions ---------- */
   #root { height: 100%; }
   .panel-window { display: flex; }
   .stage { display: flex; }
@@ -408,7 +392,6 @@
   .shortcut-recorder.recording { border-color: rgba(91,149,255,0.7); color: #CFDBFF; }
   .round-btn.quit:hover { background: rgba(248, 113, 113, 0.18); color: var(--red); }
 
-  /* ---------- Live transcription (M1) ---------- */
   .body-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
   .utterance .time { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); margin-left: 4px; font-variant-numeric: tabular-nums; }
   .utterance .txt { user-select: text; }
@@ -435,7 +418,6 @@
   .screen-preview { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
   .screen-hint { font-size: 12px; color: var(--text-3); line-height: 1.4; }
 
-/* ---------- Sessions (Home) ---------- */
 .session-item { border-top: 1px solid var(--border); }
 .session-item:first-child { border-top: 0; }
 .session-header { width: 100%; text-align: left; border-top: 0; background: transparent; color: inherit; }
@@ -462,7 +444,6 @@
 li.md-task { list-style: none; margin-left: -18px; }
 .notice-link { background: none; padding: 0; color: var(--blue); font: inherit; font-weight: 600; text-decoration: underline; }
 
-/* ---------- In-page tooltips & custom select (native ones leak in screen recordings) ---------- */
 .floating-tooltip {
   position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none;
   max-width: 260px; padding: 5px 9px; border-radius: 8px;
@@ -481,7 +462,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .menu.select-menu.right { left: auto; right: 0; }
 .menu.select-menu .item[aria-selected="true"] { color: var(--text); }
 
-/* Chat toolbar: agent and model chips shrink with ellipsis so everything fits on one row. */
 .toolbar > * { flex: none; }
 .toolbar > .anchor:has(> .chip:not(.icon-only)) { flex: 0 1 auto; min-width: 0; }
 .toolbar > .anchor > .chip:not(.icon-only) { max-width: 100%; min-width: 0; }
@@ -489,7 +469,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .toolbar .chip-text { min-width: 0; max-width: 140px; }
 .toolbar > .spacer { flex: 1 1 0; min-width: 0; }
 
-/* ---------- Syntax-highlighted code & chat thumbnails ---------- */
 .msg pre.code-block { position: relative; line-height: 1.5; color: #D6DEEB; }
 .hl-lang { position: absolute; top: 4px; right: 8px; font-size: 10.5px; color: var(--text-3); text-transform: lowercase; font-family: inherit; }
 .hl-kw { color: #C792EA; }
@@ -504,7 +483,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .msg .thumbnail.large img { height: auto; max-height: 300px; max-width: 100%; object-fit: contain; }
 .msg.user:has(.thumbnail.large) { max-width: 100%; }
 
-/* ---------- Agent editor ---------- */
 .agent-editor { margin-bottom: 4px; }
 .agent-field { display: flex; flex-direction: column; gap: 5px; padding: 0 14px 10px; font-size: 12px; color: var(--text-3); }
 .agent-field .text-input { width: 100%; }
@@ -512,7 +490,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .agent-prompt { min-height: 140px; resize: vertical; padding: 8px 10px; line-height: 1.45; font: inherit; font-size: 13px; }
 .agent-card .session-actions .sec-btn { height: 28px; }
 
-/* ---------- Session tabs ---------- */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
 .tab { padding: 7px 10px; font-size: 12.5px; font-weight: 600; color: var(--text-3); background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tab:hover { color: var(--text-2); }
@@ -526,7 +503,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .spending-table .total td { border-bottom: 0; font-weight: 650; color: var(--text); }
 .menu.up { top: auto; bottom: 38px; }
 
-/* ---------- Transcription tabs (raw, summary, insights) ---------- */
 .transcription-tabs { padding: 0 10px; flex: none; }
 .tab-badge { margin-left: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--blue); color: #fff; font-size: 10.5px; display: inline-flex; align-items: center; justify-content: center; }
 .tab-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; user-select: text; }
@@ -555,13 +531,11 @@ li.md-task { list-style: none; margin-left: -18px; }
 .tone-tense .kind { color: #F5B544; }
 .tone-negative .kind { color: var(--red); }
 
-/* ---------- Screen: history, crop, auto-capture ---------- */
 .history-nav { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .history-nav .icon-btn:disabled { opacity: 0.35; cursor: default; }
 .screen-footer { flex-wrap: wrap; row-gap: 6px; }
 .auto-label { font-size: 12px; color: var(--text-2); cursor: default; }
 
-/* ---------- Context window ---------- */
 .menu.context { width: 300px; }
 .context-ring svg { color: inherit; }
 .context-panel { display: flex; flex-direction: column; gap: 6px; }
@@ -580,7 +554,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .context-panel .item:disabled { opacity: 0.5; cursor: default; }
 .context-warning { color: var(--red); }
 
-/* ---------- Home: custom window titlebar ---------- */
 .window-bar { -webkit-app-region: drag; display: flex; align-items: center; gap: 2px; height: 38px; padding: 0 0 0 12px; border-bottom: 1px solid var(--border); flex: none; }
 .window-bar .window-btn { -webkit-app-region: no-drag; width: 44px; height: 38px; display: flex; align-items: center; justify-content: center; color: var(--text-2); }
 .window-bar .window-btn:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
@@ -591,7 +564,6 @@ li.md-task { list-style: none; margin-left: -18px; }
 .cap-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .cap-actions .sec-btn { height: 26px; font-size: 12px; }
 
-/* ---------- Overview: statistics ---------- */
 .cards.cards-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .cards.cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .card .sub { font-size: 11.5px; color: var(--text-3); line-height: 1.35; }
@@ -611,10 +583,8 @@ li.md-task { list-style: none; margin-left: -18px; }
 .tab-loading { display: flex; align-items: center; gap: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinning { animation: spin 0.9s linear infinite; }
-/* Transcription and Screen panels are nearly opaque so background content doesn't interfere with legibility. */
 body[data-window="transcription"] .panel, body[data-window="screen"] .panel { background: rgba(18, 18, 22, 0.985); }
 
-/* ---------- Live translation in Transcription ---------- */
 .utterance .translation, .utterance .correction { display: flex; align-items: flex-start; gap: 5px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-2); }
 .utterance .translation svg, .utterance .correction svg { flex: none; margin-top: 2px; color: #8FB0FF; }
 .utterance .correction { color: #9BE3B0; }

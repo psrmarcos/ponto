@@ -19,11 +19,6 @@ export type InvokeHandlers = {
 };
 export type SendHandlers = { [C in SendChannel]: (data: SendPayload<C>, e: IpcMainEvent) => void };
 
-/**
- * Binds the @ponto/shared contract to ipcMain. The `InvokeHandlers` type forces
- * every channel in the contract to be implemented; input is validated against
- * its Zod schema before reaching the handler, and only our windows may call it.
- */
 export function registerIpc(
   invoke: InvokeHandlers,
   send: SendHandlers,

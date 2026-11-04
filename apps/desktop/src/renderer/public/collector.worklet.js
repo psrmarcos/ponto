@@ -1,8 +1,3 @@
-/**
- * Runs on the audio thread. Receives audio at the sound card's native sample rate
- * (44.1/48 kHz), downmixes to 16 kHz mono (block average, acting as a basic low-pass
- * filter above 8 kHz), and emits 20 ms frames (320 samples) to the page.
- */
 const OUTPUT_SAMPLE_RATE = 16000;
 const FRAME_SAMPLES = 320;
 

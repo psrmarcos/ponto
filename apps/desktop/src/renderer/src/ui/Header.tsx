@@ -9,7 +9,6 @@ interface Props {
   meta?: ReactNode;
 }
 
-/** Panel header: the left area drags the window; the X button hides it. */
 export function Header({ windowId, icon, title, meta }: Props) {
   return (
     <div className="header">

@@ -4,11 +4,6 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { ShortcutAction, DEFAULT_SHORTCUTS, WindowId, Rect } from '@ponto/shared';
 
-/**
- * Desktop preferences (needed by the main process before the API starts):
- * stealth mode, position/size of each window, and shortcuts. Stored in a JSON
- * file inside userData. Domain settings (agents, models...) live in the API SQLite.
- */
 const Preferences = z.object({
   stealth: z.boolean().default(true),
   windows: z
@@ -42,12 +37,10 @@ export class PreferencesService {
     this.scheduleSave();
   }
 
-  /** Writes immediately (called when quitting the app). */
   saveNow(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     mkdirSync(app.getPath('userData'), { recursive: true });
-    // Write to a temporary file and rename: never leaves a half-written file.
     const tmp = `${this.file}.tmp`;
     writeFileSync(tmp, JSON.stringify(this.data, null, 2));
     renameSync(tmp, this.file);
@@ -64,7 +57,6 @@ export class PreferencesService {
       if (r.success) return r.data;
       console.warn('[preferences] invalid file, falling back to defaults');
     } catch {
-      // first run
     }
     return Preferences.parse({});
   }

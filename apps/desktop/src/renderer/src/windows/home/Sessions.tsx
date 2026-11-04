@@ -4,11 +4,6 @@ import type { SavedMessage, Session, SessionListItem, SpendBySource } from '@pon
 import { api } from '../../api/client';
 import { Markdown } from '../../ui/Markdown';
 
-/**
- * Call history: each session with its minutes (generated when the session ends)
- * and transcript. Exporting saves a `.md` file directly to `Documents/Ponto`
- * without an OS file dialog, since native dialogs show up in screen recordings.
- */
 export function Sessions() {
   const [list, setList] = useState<SessionListItem[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -77,7 +72,6 @@ function SessionRow({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [tab, setTab] = useState<'minutes' | 'conversation' | 'spending'>('minutes');
 
-  // Reload minutes when expanded and whenever summary state changes.
   useEffect(() => {
     if (!open) return;
     api
@@ -276,7 +270,6 @@ function SessionSpending({ sessionId, total }: { sessionId: string; total: numbe
   );
 }
 
-/** Sub-cent USD values disappear with 2 decimals; show 4 decimals when under $1. */
 function formatCurrency(v: number): string {
   return v >= 1 ? v.toFixed(2) : v.toFixed(4);
 }

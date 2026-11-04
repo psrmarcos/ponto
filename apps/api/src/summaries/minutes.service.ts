@@ -4,9 +4,7 @@ import { EventsService } from '../events/events.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { AiTextService } from '../ai/ai-text.service';
 
-/** Calls with fewer utterances than this do not get automatic minutes (quick tests, accidental recordings). */
 const MIN_UTTERANCES = 4;
-/** Very long transcript: send the tail (the fast model handles large context, but cost scales with input). */
 const MAX_TRANSCRIPT_CHARS = 300_000;
 
 const MINUTES_PROMPT = `Você escreve a ata de uma call a partir da transcrição. Português do Brasil, Markdown, direto ao ponto.
@@ -29,11 +27,6 @@ Formato exato:
 
 Regras: só o que foi dito na call, sem inventar. Nomes, números e datas exatos. A transcrição vem de reconhecimento de voz e pode ter erros: corrija termos óbvios, sem mudar o sentido. O usuário aparece pelo nome ou como "Você"; os outros como "Participante".`;
 
-/**
- * Meeting minutes (note-taker): generated when the session ends and saved to
- * the database alongside the session. The heading from the minutes becomes the
- * session title.
- */
 @Injectable()
 export class MinutesService implements OnModuleInit {
   private readonly log = new Logger('Minutes');
@@ -81,14 +74,12 @@ export class MinutesService implements OnModuleInit {
   }
 }
 
-/** Exports the entire session as a .md file: minutes (if present) + timestamped transcript. */
 export function sessionToMarkdown(session: Session, utterances: Utterance[], userName: string): string {
   const date = new Date(session.startedAt);
   const when = `${date.toLocaleDateString('pt-BR')} às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   const duration = utterances.length ? formatClock(utterances[utterances.length - 1]!.endMs) : '0:00';
   const parts: string[] = [];
   if (session.summary) {
-    // The minutes already begin with "# Title".
     parts.push(session.summary.replace(/^(#\s+.+)$/m, `$1\n\n_${when} · ${duration}_`));
   } else {
     parts.push(`# ${session.title}\n\n_${when} · ${duration}_`);

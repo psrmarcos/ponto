@@ -1,10 +1,5 @@
 import type { Agent } from '@ponto/shared';
 
-/**
- * Built-in agents shipped with the app. Prompts are intentionally short: they
- * are included in every call, so every word costs tokens. They stay static (no
- * date, name, etc.) so the provider can reuse the prefix cache.
- */
 export const BUILT_IN_AGENTS: Omit<Agent, 'builtIn'>[] = [
   {
     id: 'general',

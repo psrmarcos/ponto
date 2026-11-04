@@ -1,7 +1,6 @@
 import { screen, type BrowserWindow } from 'electron';
 import type { Rect } from '@ponto/shared';
 
-/** ~60 times per second: fast enough that clicks never "slip" at the edge. */
 const INTERVAL_MS = 16;
 
 interface WindowClickState {
@@ -9,14 +8,6 @@ interface WindowClickState {
   ignoring: boolean;
 }
 
-/**
- * Click-through for floating windows, decided here in the main process.
- *
- * Each window reports the rectangles that should receive mouse events. While any
- * floating window is visible, we compare the cursor position against those
- * rectangles and only call setIgnoreMouseEvents when the result changes. Does not
- * depend on renderer mousemove events, which Windows does not deliver over drag regions.
- */
 export class ClickThroughService {
   private readonly states = new Map<BrowserWindow, WindowClickState>();
   private timer: NodeJS.Timeout | null = null;
@@ -31,7 +22,7 @@ export class ClickThroughService {
 
   setAreas(win: BrowserWindow, areas: Rect[]): void {
     const s = this.states.get(win);
-    if (!s) return; // Home is not a floating window and is not registered here
+    if (!s) return;
     s.areas = areas;
     this.check();
   }
@@ -59,7 +50,6 @@ export class ClickThroughService {
       s.ignoring = !inside;
       win.setIgnoreMouseEvents(s.ignoring, { forward: true });
     }
-    // Everything hidden: stop polling the cursor until a window is shown again.
     if (!anyVisible) this.stop();
   }
 }

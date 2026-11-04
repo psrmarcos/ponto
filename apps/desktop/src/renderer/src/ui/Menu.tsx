@@ -4,24 +4,13 @@ interface Props {
   trigger: (state: { open: boolean; toggle: () => void }) => ReactNode;
   children: (close: () => void) => ReactNode;
   className?: string;
-  /** Preferred vertical direction. Flips to the other side if it doesn't fit. */
   direction?: 'down' | 'up';
-  /** Horizontal edge of the trigger to align with. */
   align?: 'left' | 'right';
 }
 
 const MARGIN = 8;
 const GAP = 4;
 
-/**
- * Popover menu anchored to a trigger button. Closes on outside click, Escape,
- * or page scroll.
- *
- * Uses `position: fixed` computed from the button's bounding box so no parent
- * container with scroll or `overflow: hidden` clips it. Opens toward the side
- * with more space, shifts horizontally to stay within the viewport, and scrolls
- * internally if still taller than available space.
- */
 export function Menu({ trigger, children, className = '', direction = 'down', align = 'left' }: Props) {
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState<CSSProperties | null>(null);
@@ -34,7 +23,6 @@ export function Menu({ trigger, children, className = '', direction = 'down', al
       if (!anchorRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    // Page scrolled underneath: button moved, so close (scrolling inside the menu itself is fine).
     const onScroll = (e: Event) => {
       if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -51,7 +39,6 @@ export function Menu({ trigger, children, className = '', direction = 'down', al
     };
   }, [open]);
 
-  // Measure before paint so it never flashes in the wrong position.
   useLayoutEffect(() => {
     if (!open || !anchorRef.current || !menuRef.current) {
       setStyle(null);

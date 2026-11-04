@@ -1,8 +1,3 @@
-/**
- * Whisper "hallucinates" phrases when given noise or near-silence, almost always
- * the same ones (coming from video subtitles used in training). We discard the
- * entire utterance when it consists solely of one of these phrases.
- */
 const PHRASES = [
   'legendas pela comunidade amara org',
   'legendado pela comunidade amara org',
@@ -23,7 +18,6 @@ const PHRASES = [
   'aplausos',
   'risos',
 ];
-/** Too short to trust when the audio clip itself is also very short. */
 const SHORT_WORDS = ['obrigado', 'obrigada', 'tchau', 'thank you', 'you', 'e ai', 'ok'];
 
 export function normalize(t: string): string {

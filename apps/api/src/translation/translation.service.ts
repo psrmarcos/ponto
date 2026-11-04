@@ -5,7 +5,6 @@ import { EventsService } from '../events/events.service';
 import { AiTextService } from '../ai/ai-text.service';
 import { SessionsService } from '../sessions/sessions.service';
 
-/** Language name in English helps the model distinguish variants (e.g. pt-PT vs pt-BR). */
 const IN_ENGLISH: Partial<Record<Settings['translationTarget'], string>> = {
   'pt-BR': 'Brazilian Portuguese',
   'pt-PT': 'European Portuguese',
@@ -15,15 +14,8 @@ const IN_ENGLISH: Partial<Record<Settings['translationTarget'], string>> = {
   de: 'German',
   it: 'Italian',
 };
-/** Translations kept per session (in-memory only; cleared when the app closes). */
 const MAX_PER_SESSION = 2000;
 
-/**
- * Real-time translation: each new (finalized) utterance is translated by the
- * fast model and broadcast to windows. One short call per utterance. Utterances
- * already in the target language return without translation. In learning mode,
- * your utterances also receive a brief correction.
- */
 @Injectable()
 export class TranslationService implements OnModuleInit {
   private readonly log = new Logger('Translation');

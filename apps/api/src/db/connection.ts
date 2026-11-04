@@ -7,11 +7,6 @@ import * as schema from './schema';
 
 export type Database = SqliteRemoteDatabase<typeof schema>;
 
-/**
- * Connects Drizzle to `node:sqlite` (built into Node/Electron, no native module
- * to rebuild). Drizzle has no official driver for it, so we use `sqlite-proxy`:
- * Drizzle builds the SQL and we execute it here.
- */
 export function openDatabase(file: string): { db: Database; sqlite: DatabaseSync } {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
   const sqlite = new DatabaseSync(file);
@@ -30,7 +25,6 @@ export function openDatabase(file: string): { db: Database; sqlite: DatabaseSync
     return st;
   };
 
-  // The proxy expects rows as arrays in the order of selected columns.
   const asArray = (row: unknown): unknown[] => Object.values(row as Record<string, unknown>);
 
   const db = drizzle(

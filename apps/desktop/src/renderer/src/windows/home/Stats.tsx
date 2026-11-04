@@ -15,7 +15,6 @@ const SOURCE_LABELS: Record<string, string> = {
   translation: 'Tradução',
 };
 
-/** Home overview numbers: sessions, recorded hours, speaking share, costs, and last 14 days. */
 export function Stats() {
   const [data, setData] = useState<StatsData | null>(null);
   const agents = useDomain((s) => s.agents);

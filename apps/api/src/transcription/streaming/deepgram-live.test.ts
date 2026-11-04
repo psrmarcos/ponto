@@ -13,7 +13,6 @@ function create() {
     error: () => undefined,
   });
   openInstances.push(dg);
-  // Does not talk to Deepgram over the network: tests only segment joining and timestamp mapping.
   const receive = (r: object) => (dg as unknown as { onReceive: (r: object) => void }).onReceive(r);
   return { dg, utterances, partials, receive };
 }
@@ -21,7 +20,6 @@ function create() {
 describe('DeepgramLive', () => {
   it('joins final segments and maps utterance to session time, skipping silence', () => {
     const { dg, utterances, partials, receive } = create();
-    // 1s of audio starting at 10s in the session + 1s starting at 60s.
     dg.audio(Buffer.alloc(32_000), 10_000);
     dg.audio(Buffer.alloc(32_000), 60_000);
     receive({ type: 'Results', start: 1.1, duration: 0.3, is_final: false, channel: { alternatives: [{ transcript: 'qual é' }] } });

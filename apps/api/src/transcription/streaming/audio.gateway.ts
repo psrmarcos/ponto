@@ -6,11 +6,6 @@ import { AudioChannel } from '@ponto/shared';
 import { isValidToken } from '../../common/token.guard';
 import { StreamingService } from './streaming.service';
 
-/**
- * Live audio from the capture window (ws://127.0.0.1:<port>/audio?token&sessionId&channel).
- * Each binary message: 8 bytes with the session ms where the chunk starts
- * (float64 little-endian) followed by 16-bit mono 16 kHz PCM.
- */
 @WebSocketGateway({ path: '/audio' })
 export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly log = new Logger('LiveAudio');
@@ -28,7 +23,6 @@ export class AudioGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     const rejection = await this.streaming.open(sessionId, channel.data, () => client.close(4000, 'streaming dropped'));
     if (rejection) {
-      // 4000: capture falls back to batch mode without retrying.
       client.close(4000, rejection.slice(0, 120));
       return;
     }

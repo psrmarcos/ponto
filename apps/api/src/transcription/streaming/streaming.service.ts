@@ -15,12 +15,6 @@ interface Connection {
   model: string;
 }
 
-/**
- * Streaming transcription (currently Deepgram). The capture engine sends speech
- * audio as it happens; interim text is broadcast to windows immediately and
- * finalized utterances are persisted like any other. If streaming is unavailable,
- * capture transparently falls back to batch mode.
- */
 @Injectable()
 export class StreamingService {
   private readonly log = new Logger('Streaming');
@@ -34,7 +28,6 @@ export class StreamingService {
     private readonly usage: UsageService,
   ) {}
 
-  /** Opens streaming for a channel. Returns the rejection reason when unavailable (capture falls back to batch). */
   async open(sessionId: string, channel: AudioChannel, onDrop: () => void): Promise<string | null> {
     const cfg = await this.settings.get();
     if (cfg.sttProvider !== 'deepgram') return 'O streaming só existe no Deepgram.';
@@ -49,7 +42,6 @@ export class StreamingService {
       error: (message) => {
         this.log.warn(`${id}: ${message}`);
         this.events.emit({ type: 'transcription.error', sessionId, message: `${message} Seguindo sem streaming.` });
-        // Closes the capture side so it reverts to sending utterances in batch mode without losing audio.
         this.close(id);
         onDrop();
       },
@@ -67,15 +59,9 @@ export class StreamingService {
     if (!conn) return;
     this.connections.delete(id);
     conn.dg.close();
-    // Final utterances may still arrive right after CloseStream; bill once everything has settled.
     setTimeout(() => void this.bill(conn), 3500).unref();
   }
 
-  /**
-   * Immediately finalizes open utterances in the session and waits for them to
-   * become text (up to `maxMs`). Chat calls this before answering so the full
-   * question is included.
-   */
   async waitForPending(sessionId: string, maxMs: number): Promise<void> {
     const openConns = [...this.connections.values()].filter((c) => c.sessionId === sessionId && c.dg.hasOpenUtterance());
     if (!openConns.length) return;

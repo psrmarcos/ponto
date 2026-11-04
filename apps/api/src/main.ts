@@ -14,11 +14,8 @@ async function start(): Promise<void> {
     logger: env.insideElectron ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug'],
   });
   app.useWebSocketAdapter(new WsAdapter(app));
-  // Audio chunks arrive as raw WAV (no base64: 33% smaller and zero conversion overhead).
   app.useBodyParser('raw', { type: 'audio/wav', limit: MAX_CHUNK_BYTES });
-  // Chat requests may carry base64 images (screenshots, attachments up to 8 MB).
   app.useBodyParser('json', { limit: '40mb' });
-  // Windows load from file:// (origin "null") or Vite in dev. The token header is what actually protects the API.
   app.enableCors({
     origin: (origin: string | undefined, ok: (err: Error | null, allow?: boolean) => void) =>
       ok(null, !origin || origin === 'null' || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)),
@@ -26,7 +23,6 @@ async function start(): Promise<void> {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   });
   app.enableShutdownHooks();
-  // Local loopback only: nothing is exposed on the network.
   await app.listen(env.port, '127.0.0.1');
 
   const log = new Logger('Ponto');

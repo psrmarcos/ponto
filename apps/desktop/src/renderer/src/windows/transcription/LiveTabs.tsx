@@ -18,14 +18,12 @@ const EMPTY_LIVE: LiveAnalysis = {
   active: { summary: false, insights: false },
 };
 
-/** Live summary, insights, and voice metrics for the current (or last) session. */
 const useLiveStore = create<{ sessionId: string | null; data: LiveAnalysis; generating: Record<LiveSection, boolean> }>(() => ({
   sessionId: null,
   data: EMPTY_LIVE,
   generating: { summary: false, insights: false },
 }));
 
-/** First time a tab is opened in the session: activates live analysis and awaits initial results. */
 function activatePart(part: LiveSection): void {
   const { sessionId, data, generating } = useLiveStore.getState();
   if (!sessionId || data.active[part] || generating[part]) return;
@@ -39,7 +37,6 @@ function activatePart(part: LiveSection): void {
     .finally(() => useLiveStore.setState((s) => ({ generating: { ...s.generating, [part]: false } })));
 }
 
-/** "Regenerate" button on the summary tab: rebuilds from scratch using all utterances so far. */
 function regenerateSummary(): void {
   const { sessionId, generating } = useLiveStore.getState();
   if (!sessionId || generating.summary) return;
@@ -62,7 +59,6 @@ function loadLive(sessionId: string): void {
     .catch(() => undefined);
 }
 
-/** Connects live analysis to the active transcription session. Call once inside the Transcription window. */
 export function useConnectLive(): void {
   const sessionId = useTranscription((s) => s.sessionId);
   const totalUtterances = useTranscription((s) => s.utterances.length);
@@ -88,7 +84,6 @@ export function useConnectLive(): void {
     };
   }, [sessionId]);
 
-  // Voice metrics are computed on the API without AI: refresh every 5 utterances.
   useEffect(() => {
     if (sessionId && totalUtterances && totalUtterances % 5 === 0) loadLive(sessionId);
   }, [sessionId, totalUtterances]);
@@ -111,7 +106,6 @@ export function TabSelector({ tab, onChange }: { tab: TranscriptionTab; onChange
   );
 }
 
-/** Insights that arrived while the Insights tab was closed. */
 function useUnseenInsights(tab: TranscriptionTab): number {
   const total = useLiveStore((s) => s.data.insights.length);
   const [seen, setSeen] = useState(0);

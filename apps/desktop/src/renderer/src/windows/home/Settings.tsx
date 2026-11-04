@@ -220,7 +220,6 @@ function priceInfo(models: AiModel[], id: string): string {
 }
 const fmt = (v: number) => (v < 1 ? v.toFixed(3) : v.toFixed(2));
 
-/** Model ID input with in-window autocomplete suggestions (native `<datalist>` leaks in recordings). */
 function ModelField({ value, models, onSave }: { value: string; models: AiModel[]; onSave: (m: string) => void }) {
   const [text, setText] = useState(value);
   const [open, setOpen] = useState(false);
@@ -257,7 +256,6 @@ function ModelField({ value, models, onSave }: { value: string; models: AiModel[
           if (e.key === 'Escape') setOpen(false);
         }}
         onBlur={() => {
-          // Let click on suggestion complete before closing.
           setTimeout(() => setOpen(false), 150);
           if (!invalid && text !== value) onSave(text);
         }}
@@ -329,7 +327,7 @@ function ShortcutRecorder({ action, current }: { action: ShortcutAction; current
     e.preventDefault();
     if (e.key === 'Escape') return setRecording(false);
     const accel = toAccelerator(e);
-    if (!accel) return; // only modifiers pressed so far
+    if (!accel) return;
     setRecording(false);
     const res = await window.ponto.invoke('shortcuts.set', { action, accelerator: accel });
     setError(res.ok ? null : (res.error ?? 'Não foi possível usar esse atalho.'));
@@ -359,7 +357,6 @@ function ShortcutRecorder({ action, current }: { action: ShortcutAction; current
   );
 }
 
-/** Converts a keyboard event into Electron Accelerator format. Requires at least one modifier. */
 function toAccelerator(e: KeyboardEvent): string | null {
   const mods: string[] = [];
   if (e.ctrlKey || e.metaKey) mods.push('CommandOrControl');
@@ -390,7 +387,6 @@ const KEY_NAMES: Record<string, string> = {
   Right: '→',
 };
 
-/** "CommandOrControl+Shift+G" becomes ["Ctrl", "⇧ Shift", "G"], one keycap each. */
 function readableKeys(accel: string): string[] {
   return accel
     .split('+')

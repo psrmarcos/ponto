@@ -1,11 +1,5 @@
 import type { BrowserWindow } from 'electron';
 
-/**
- * Reads the actual native window z-order on Windows so `ZOrderService` only
- * reorders when necessary. Reordering unnecessarily (`moveTop` on every window
- * every second) causes windows to swap places briefly and flicker.
- * On macOS/Linux returns null and `ZOrderService` falls back to periodic restacking.
- */
 interface User32 {
   GetTopWindow: (hwnd: number) => number;
   GetWindow: (hwnd: number, cmd: number) => number;
@@ -34,7 +28,6 @@ function load(): User32 | null {
   u32 = null;
   if (process.platform !== 'win32') return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const koffi = require('koffi') as typeof import('koffi');
     const lib = koffi.load('user32.dll');
     koffi.struct('PONTO_RECT', { left: 'long', top: 'long', right: 'long', bottom: 'long' });
@@ -69,11 +62,6 @@ export function isAvailable(): boolean {
   return load() !== null;
 }
 
-/**
- * Checks whether the native z-order matches `ours` (ordered bottom-to-top, visible only).
- * Correct = no third-party topmost window is above and overlapping any of our windows,
- * and our windows appear in the same relative order as the stack.
- */
 export function isOrderCorrect(ours: BrowserWindow[]): boolean | null {
   const u = load();
   if (!u) return null;
@@ -82,7 +70,6 @@ export function isOrderCorrect(ours: BrowserWindow[]): boolean | null {
     const ids = ours.map(hwndOf);
     const position = new Map(ids.map((h, i) => [h, i]));
     const rects = ids.map((h) => getRect(u, h)).filter((r): r is WinRect => !!r);
-    // Walking from top to bottom, our windows must appear from the top of the stack down to the first.
     let expected = ids.length - 1;
     let h = u.GetTopWindow(0);
     for (let n = 0; h && n < MAX_WINDOWS && expected >= 0; n++, h = u.GetWindow(h, GW_HWNDNEXT)) {
@@ -94,7 +81,6 @@ export function isOrderCorrect(ours: BrowserWindow[]): boolean | null {
       }
       if (!u.IsWindowVisible(h) || u.IsIconic(h)) continue;
       const ex = Number(u.GetWindowLongPtrW(h, GWL_EXSTYLE));
-      // Only care about topmost windows that actually draw over ours (transparent game/GPU overlays don't count).
       if (!(ex & WS_EX_TOPMOST) || ex & WS_EX_TRANSPARENT) continue;
       const r = getRect(u, h);
       if (r && r.right - r.left > 1 && r.bottom - r.top > 1 && rects.some((x) => overlaps(x, r))) return false;

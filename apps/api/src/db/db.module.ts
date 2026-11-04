@@ -3,7 +3,6 @@ import type { DatabaseSync } from 'node:sqlite';
 import { env } from '../env';
 import { openDatabase, migrateDatabase, type Database } from './connection';
 
-/** Database injection token: `@Inject(DB) private readonly db: Database`. */
 export const DB = Symbol('DB');
 export const SQLITE = Symbol('SQLITE');
 

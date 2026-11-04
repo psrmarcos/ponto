@@ -1,21 +1,9 @@
 import type { AudioChannel } from '@ponto/shared';
 
-/** Pre-onset audio before the detector notices speech (avoids clipping the first syllable). */
 const PRE_ROLL_FRAMES = 15;
-/**
- * After speech ends, keep sending a brief tail of silence: this triggers
- * Deepgram's endpointing (400 ms) to finalize the sentence.
- */
 const TAIL_FRAMES = 45;
-/** Bundle 5 frames (100 ms) per WebSocket message. */
 const FRAMES_PER_MESSAGE = 5;
 
-/**
- * Live audio stream for a single channel to the local API (which relays to Deepgram).
- * Only sends audio when speech is present to avoid paying for silence. If the API
- * rejects or the connection drops, `failed` becomes true and capture falls back
- * to batch segments.
- */
 export class ChannelStream {
   private ws: WebSocket;
   private isOpen = false;

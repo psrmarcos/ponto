@@ -8,12 +8,6 @@ type Draft = { id: string | null; name: string; description: string; prompt: str
 
 const EMPTY_DRAFT: Draft = { id: null, name: '', description: '', prompt: '', model: '' };
 
-/**
- * Agents: built-in agents come with the app and cannot be modified directly
- * (you can duplicate and edit the copy). Custom agents can be created, edited,
- * and deleted. Response format rules (bold idea + short phrasing) apply to all
- * agents; the agent prompt defines the role and context.
- */
 export function Agents() {
   const agents = useDomain((s) => s.agents);
   const active = useDomain((s) => s.settings?.activeAgentId);

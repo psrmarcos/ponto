@@ -7,11 +7,6 @@ import type { SecretsService } from './secrets';
 
 const BACKOFF_MS = [1000, 2000, 5000, 10_000, 30_000];
 
-/**
- * Spawns the API (NestJS) as a utilityProcess, watches it, and restarts it if
- * it crashes. Generates a new random token on each run: only holders of the
- * token (our windows) can talk to it.
- */
 export class ApiHost {
   private proc: UtilityProcess | null = null;
   private readonly token = randomBytes(24).toString('hex');
@@ -92,7 +87,6 @@ export class ApiHost {
   }
 }
 
-/** Starting from the preferred port, finds the first free port on 127.0.0.1. */
 async function findFreePort(preferred: number): Promise<number> {
   for (let p = preferred; p < preferred + 50; p++) {
     const free = await new Promise<boolean>((ok) => {

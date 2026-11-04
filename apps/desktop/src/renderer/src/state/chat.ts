@@ -8,14 +8,11 @@ export interface Message {
   id: string;
   role: 'user' | 'ai';
   text: string;
-  /** Previews of images sent alongside the message. */
   images?: string[];
   state: 'sending' | 'streaming' | 'ready' | 'error';
   model?: string;
   usage?: AiUsage | null;
-  /** Question automatically detected by the app during the call (not typed by the user). */
   automatic?: boolean;
-  /** Spending cap error: the message offers to unlock more budget. */
   cap?: boolean;
 }
 
@@ -77,7 +74,6 @@ export const useChat = create<Chat>((set, get) => ({
         web,
         reasoning,
         images: attachments.map((a) => a.dataUrl),
-        // While recording: the API attaches the recent call transcript as context.
         sessionId: useAppState.getState().state?.capture.sessionId ?? null,
       };
       pending.set(aiId, true);
@@ -110,19 +106,16 @@ function shortcutLabel(shortcut: ChatRequest['shortcut']): string {
   return '(imagem)';
 }
 
-/** Wires the chat store to WebSocket streaming events. */
 export function initChat(): void {
   const update = (id: string, fn: (m: Message) => Message) =>
     useChat.setState((s) => ({ messages: s.messages.map((m) => (m.id === id ? fn(m) : m)) }));
 
-  // Screen capture (button in the Screen window or Ctrl+Shift+S): sent to AI as an image.
   window.ponto.on('screen.read', ({ dataUrl }) => {
     const chat = useChat.getState();
     chat.attach({ name: 'Tela', dataUrl });
     void chat.send('', 'screen');
   });
 
-  // Selected text shortcut: sends the selection with a prompt to explain/answer.
   window.ponto.on('selection.read', ({ text }) => {
     if (!text) {
       const id = newId();

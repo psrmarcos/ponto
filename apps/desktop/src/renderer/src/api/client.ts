@@ -3,11 +3,6 @@ import { useAppState } from '../state/app';
 
 type Listener = (event: WsEvent) => void;
 
-/**
- * Local API client: HTTP for requests, WebSocket for events. Reconnects
- * automatically when the API restarts (the port may change, so it requests
- * the connection info again).
- */
 class ApiClient {
   private connection: ApiConnection | null = null;
   private ws: WebSocket | null = null;
@@ -16,7 +11,6 @@ class ApiClient {
   private backoffMs = 500;
 
   constructor() {
-    // Reconnect when the API becomes ready (again).
     useAppState.subscribe((state, prev) => {
       if (state.state?.api.status === 'ready' && prev.state?.api.status !== 'ready') void this.connect();
     });
@@ -27,7 +21,6 @@ class ApiClient {
     return () => this.listeners.delete(listener);
   }
 
-  /** Called on every (re)connection: good place to reload initial data. */
   onConnect(handler: () => void): () => void {
     this.connectHandlers.add(handler);
     if (this.ws?.readyState === WebSocket.OPEN) handler();
@@ -70,7 +63,6 @@ class ApiClient {
     return this.request<T>('PATCH', path, body);
   }
 
-  /** Sends a raw WAV buffer (no JSON or base64 overhead). */
   async sendAudio(path: string, wav: ArrayBuffer): Promise<void> {
     const conn = this.connection ?? (await window.ponto.invoke('api.connection'));
     if (!conn) throw new Error('A API local ainda está iniciando.');
@@ -80,7 +72,7 @@ class ApiClient {
       headers: { [TOKEN_HEADER]: conn.token, 'content-type': 'audio/wav' },
       body: wav,
     }).catch((err: unknown) => {
-      this.connection = null; // API may have restarted on another port
+      this.connection = null;
       throw err;
     });
     if (!res.ok) throw new Error(`Erro ${res.status} ao enviar o áudio`);
@@ -95,7 +87,7 @@ class ApiClient {
       headers: { [TOKEN_HEADER]: conn.token, ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     }).catch((err: unknown) => {
-      this.connection = null; // API may have restarted on another port
+      this.connection = null;
       throw err;
     });
     if (!res.ok) {

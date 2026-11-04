@@ -1,31 +1,14 @@
-/**
- * Energy-based voice activity detector (VAD) with adaptive noise floor.
- *
- * Slices continuous audio into speech segments: starts when volume exceeds the
- * background noise floor for a few consecutive frames and ends after a short
- * silence. Each segment becomes a transcription request, so clean slicing
- * directly impacts cost and quality (no paid silence, no words cut in half).
- */
-
 export const FRAME_MS = 20;
 
 export interface VadOptions {
-  /** How much above the noise floor counts as speech (dB). */
   marginDb: number;
-  /** Below this is never considered speech, even in a very quiet room (dBFS). */
   minDb: number;
-  /** Consecutive speech frames required to trigger start (avoids clicks and knocks). */
   framesToStart: number;
-  /** Pre-onset audio included at the start (avoids clipping the first syllable). */
   preRollMs: number;
-  /** Silence duration that closes the speech segment. */
   endSilenceMs: number;
-  /** Long speech: after this duration, cut on the first short pause. */
   cutAfterMs: number;
   shortPauseMs: number;
-  /** Forced cut even without a pause. */
   maxMs: number;
-  /** Segments with less actual speech than this are discarded. */
   minSpeechMs: number;
 }
 
@@ -60,22 +43,18 @@ export class SpeechDetector {
 
   constructor(private readonly opts: VadOptions = DEFAULT_VAD_OPTIONS) {}
 
-  /** Whether a speech segment is currently in progress. */
   get inSpeech(): boolean {
     return this.speaking;
   }
 
-  /** Smoothed current volume from 0 to 1 for the level meter. */
   get level(): number {
     return this._level;
   }
 
-  /** `tMs` is the timestamp at the start of the frame. Returns a segment when speech ends. */
   process(frame: Float32Array, tMs: number): SpeechSegment | null {
     const db = decibels(frame);
     this.updateLevel(db);
     const isSpeech = db > Math.max(this.floor + this.opts.marginDb, this.opts.minDb);
-    // Noise floor: drops quickly (quieter new background), rises slowly (~1 dB/s) so it doesn't "learn" the voice.
     if (!isSpeech || !this.speaking) this.floor = db < this.floor ? this.floor * 0.9 + db * 0.1 : this.floor + 0.02;
     this.floor = Math.min(-30, Math.max(-90, this.floor));
 
@@ -114,12 +93,10 @@ export class SpeechDetector {
     return null;
   }
 
-  /** Flushes any ongoing segment (on pause or session end). */
   flush(tMs: number): SpeechSegment | null {
     return this.speaking ? this.close(tMs) : null;
   }
 
-  /** Discards current state without emitting a segment. */
   reset(): void {
     this.speaking = false;
     this.current = [];
@@ -129,7 +106,6 @@ export class SpeechDetector {
   }
 
   private close(endMs: number): SpeechSegment | null {
-    // Trim trailing silence, leaving a 200 ms tail.
     const trimFrames = Math.max(0, this.consecutiveSilence - Math.round(200 / FRAME_MS));
     const frames = trimFrames ? this.current.slice(0, this.current.length - trimFrames) : this.current;
     const speechDuration = this.speechFrames * FRAME_MS;

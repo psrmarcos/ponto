@@ -1,12 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { parentChannel } from '../parent-channel';
 
-/**
- * In-memory API keys. The actual encrypted store (using the OS keychain) lives
- * in the main process, which pushes the updated set whenever it changes.
- * When running the API outside Electron, keys come from environment variables
- * (PONTO_KEY_OPENROUTER etc.), useful for tests.
- */
 @Injectable()
 export class SecretsService {
   private values = new Map<string, string>();

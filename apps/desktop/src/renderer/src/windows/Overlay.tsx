@@ -48,7 +48,6 @@ const openWindow = (id: 'home' | 'transcription' | 'screen', visible?: boolean) 
 export function Overlay() {
   const [chatVisible, setChatVisible] = useState(true);
   useEffect(() => window.ponto.on('chat.toggle', () => setChatVisible((v) => !v)), []);
-  // Question detected during the call: show the chat with the answer streaming in.
   useEffect(() => api.on((e) => e.type === 'suggestion.new' && setChatVisible(true)), []);
   useEffect(() => window.ponto.on('screen.read', () => setChatVisible(true)), []);
   useEffect(() => window.ponto.on('selection.read', () => setChatVisible(true)), []);
@@ -167,12 +166,10 @@ function Messages() {
   const ref = useRef<HTMLDivElement>(null);
   const last = messages.at(-1);
 
-  // New message (yours or detected in the call): always scroll to the bottom.
   useLayoutEffect(() => {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
-  // While the response streams in, follow along unless the user scrolled up to read.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -229,7 +226,6 @@ function Bubble({ m }: { m: Message }) {
   );
 }
 
-/** Hit the spending cap: unlocks additional budget for this conversation and resends the last question. */
 function UnlockCap() {
   const [done, setDone] = useState(false);
   const unlock = async (usd: number) => {
@@ -251,7 +247,6 @@ function UnlockCap() {
   );
 }
 
-/** Small preview of an attached image; clicking expands it inside the chat. */
 function Thumbnail({ src }: { src: string }) {
   const [large, setLarge] = useState(false);
   return (

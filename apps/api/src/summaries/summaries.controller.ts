@@ -6,7 +6,6 @@ import { SessionsService } from '../sessions/sessions.service';
 import { MinutesService, sessionToMarkdown } from './minutes.service';
 import { LiveAnalysisService } from './live-analysis.service';
 
-/** Session history on Home: listing, minutes, export, and cleanup. */
 @Controller('sessions')
 export class SummariesController {
   constructor(
@@ -33,7 +32,6 @@ export class SummariesController {
     await this.sessions.remove(id);
   }
 
-  /** Generates (or regenerates) the minutes. Responds immediately; result arrives via session.summary event. */
   @Post(':id/summary')
   @HttpCode(202)
   generateSummary(@Param('id') id: string): void {
@@ -50,7 +48,6 @@ export class SummariesController {
     return this.liveAnalysis.regenerateSummary(id);
   }
 
-  /** User opened the Summary or Insights tab: starts that analysis and returns the initial version. */
   @Post(':id/live/:section')
   activateLive(@Param('id') id: string, @Param('section') section: string): Promise<LiveAnalysis> {
     const p = LiveSection.safeParse(section);

@@ -17,7 +17,6 @@ export class AgentsService implements OnModuleInit {
     private readonly events: EventsService,
   ) {}
 
-  /** Ensures built-in agents exist and are up to date with the app version (without touching user-created ones). */
   async onModuleInit(): Promise<void> {
     const now = new Date();
     for (const [sortOrder, a] of BUILT_IN_AGENTS.entries()) {

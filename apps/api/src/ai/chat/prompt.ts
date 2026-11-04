@@ -1,9 +1,7 @@
 import type { Agent, Settings, ChatRequest } from '@ponto/shared';
 import type { AiMessage, MessagePart } from '../providers/provider';
 
-/** How many previous turns (question + answer) are included in each call. */
 export const HISTORY_TURNS = 6;
-/** Older answers are truncated in history: the model only needs to remember the topic. */
 export const MAX_OLD_RESPONSE_CHARS = 1200;
 
 export const SHORTCUT_TEXTS: Record<NonNullable<ChatRequest['shortcut']>, string> = {
@@ -14,13 +12,6 @@ export const SHORTCUT_TEXTS: Record<NonNullable<ChatRequest['shortcut']>, string
   screen: 'Esta é a minha tela agora. Diga o que nela importa para a conversa; se houver uma pergunta, exercício ou código, resolva.',
 };
 
-/**
- * Fixed rules, identical across every call (part of the cacheable prefix).
- *
- * The user glances at the response while speaking. Therefore the response has two layers:
- * the core idea in bold (at a glance they know the direction) and the spoken lines, in
- * short self-contained sentences so they can adjust tone and stop whenever they want.
- */
 const RULES = [
   'Você escreve o que a pessoa vai dizer numa call ao vivo. Ela lê de relance enquanto fala, então:',
   '1. Primeira linha: a ideia central em negrito, com no máximo 10 palavras.',
@@ -33,7 +24,6 @@ const RULES = [
 
 export const CONVERSATION_SUMMARY_PREFIX = 'Resumo do que já conversamos neste chat:';
 
-/** Fixed system parts, so the context window inspector can measure them without building the full call. */
 export function instructionsText(agent: Pick<Agent, 'prompt'>): string {
   return `${agent.prompt}\n\n${RULES}`;
 }
@@ -45,30 +35,19 @@ export const COMPRESS_PROMPT = [
 ].join('\n');
 
 export interface PreviousTurn {
-  /** Exactly what was sent (including the call utterances from that turn): history is append-only so the provider cache hits. */
   question: string;
-  /** Only the user request, without transcript. Used when older transcript is replaced by the call summary. */
   pureQuestion: string;
   answer: string;
-  /** Length of the transcript included in this turn. */
   transcriptChars: number;
 }
 
-/**
- * Builds messages in the order that maximizes provider prompt caching: first
- * what never changes during the session (agent + rules + profile), then history,
- * and finally what is new in this call.
- */
 export function buildMessages(args: {
   agent: Pick<Agent, 'prompt'>;
   settings: Pick<Settings, 'userName' | 'userContext'>;
   history: PreviousTurn[];
   request: Pick<ChatRequest, 'text' | 'shortcut' | 'images'>;
-  /** Call utterances that the model hasn't seen yet in this conversation, pre-formatted. */
   transcript?: string | null;
-  /** Summary of the beginning of the call (what has already aged out of raw utterances). */
   callSummary?: string | null;
-  /** Summary of older turns in this conversation when compressed. */
   conversationSummary?: string | null;
 }): AiMessage[] {
   const profile = [
@@ -80,7 +59,6 @@ export function buildMessages(args: {
 
   const system: MessagePart[] = [{ type: 'text', text: `${args.agent.prompt}\n\n${RULES}`, cache: !profile }];
   if (profile) system.push({ type: 'text', text: profile, cache: !args.callSummary && !args.conversationSummary });
-  // Changes rarely (only when the start of the call is re-summarized), so it stays in the static prefix.
   if (args.callSummary) system.push({ type: 'text', text: `Resumo do começo da call:\n${args.callSummary}`, cache: !args.conversationSummary });
   if (args.conversationSummary) system.push({ type: 'text', text: `${CONVERSATION_SUMMARY_PREFIX}\n${args.conversationSummary}`, cache: true });
 
@@ -103,7 +81,6 @@ export function buildMessages(args: {
   return messages;
 }
 
-/** The question prefixed with new call utterances. */
 export function userMessage(question: string, transcript?: string | null): string {
   if (!transcript) return question;
   return (

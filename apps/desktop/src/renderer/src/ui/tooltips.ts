@@ -1,12 +1,3 @@
-/**
- * In-window tooltips.
- *
- * The native `title` tooltip is a separate OS window and shows up in screen
- * recordings even when stealth mode is enabled (tested on Windows 11).
- * Here every `title` attribute is converted into `data-tooltip` as soon as it
- * enters the DOM, and the tooltip is an element inside the page itself, so it
- * stays hidden from screen capture along with the window.
- */
 const DELAY_MS = 450;
 
 export function installTooltips(): void {
@@ -50,7 +41,6 @@ export function installTooltips(): void {
     const margin = 6;
     let x = r.left + r.width / 2 - d.width / 2;
     x = Math.max(margin, Math.min(x, window.innerWidth - d.width - margin));
-    // Below the element; if it doesn't fit, above it.
     let y = r.bottom + margin;
     if (y + d.height > window.innerHeight - margin) y = r.top - d.height - margin;
     tooltip.style.transform = `translate(${Math.round(x)}px, ${Math.round(Math.max(margin, y))}px)`;

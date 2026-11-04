@@ -10,12 +10,9 @@ import { OpenRouterStt } from './stt/openrouter-stt';
 import { SttError, type SttProvider } from './stt/stt-provider';
 import { StreamingService } from './streaming/streaming.service';
 
-/** Bytes per second of 16 kHz, 16-bit, mono WAV. */
 const BYTES_PER_SECOND = 32_000;
-/** Chunks transcribed concurrently. Others wait in the queue in order. */
 const CONCURRENCY = 3;
 const TIMEOUT_MS = 45_000;
-/** Do not repeat the same error warning more than once within this interval. */
 const WARNING_INTERVAL_MS = 15_000;
 
 interface Task {
@@ -24,18 +21,12 @@ interface Task {
   done: () => void;
 }
 
-/**
- * Receives each speech segment cut by the capture window, sends it to STT, and
- * stores the resulting text. Utterances arrive in parallel (you and the other
- * side speaking), so they may finish out of order; the UI sorts by startMs.
- */
 @Injectable()
 export class TranscriptionService {
   private readonly log = new Logger('Transcription');
   private readonly queue: Task[] = [];
   private active = 0;
   private lastWarning = new Map<string, number>();
-  /** In-progress transcriptions per session (queued or in flight at the provider). */
   private pending = new Map<string, Set<Promise<void>>>();
   private readonly providers: Record<SttProviderId, SttProvider>;
 
@@ -61,11 +52,6 @@ export class TranscriptionService {
     this.pump();
   }
 
-  /**
-   * Waits for utterances still being transcribed, up to `maxMs`. Chat calls this
-   * before building context: clicking "What should I say?" right after a question
-   * requires that question to already be transcribed.
-   */
   async waitForPending(sessionId: string, maxMs: number): Promise<void> {
     const forSession = this.pending.get(sessionId);
     const batch = forSession?.size

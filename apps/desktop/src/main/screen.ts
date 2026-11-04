@@ -1,15 +1,8 @@
 import { desktopCapturer, screen } from 'electron';
 
-/** Longest side of the screenshot. Larger resolutions only waste tokens: slide text and code remain readable. */
 const MAX_SIDE = 1600;
-/** Above this size the image is heavy to upload and expensive; step down JPEG quality. */
 const MAX_BYTES = 350 * 1024;
 
-/**
- * Captures a screenshot of the display under the cursor (multi-monitor users
- * usually look at the display they are interacting with). Ponto windows do not
- * appear when stealth mode is enabled, because Windows/macOS excludes them from capture.
- */
 export async function captureScreen(options: { maxSide?: number; maxBytes?: number } = {}): Promise<string> {
   const side = options.maxSide ?? MAX_SIDE;
   const source = await screenSource(side);
@@ -35,7 +28,6 @@ async function screenSource(side: number) {
   return source;
 }
 
-/** Grayscale thumbnail (64x36) to check whether the screen changed locally without sending anything to AI. */
 export async function screenSignature(): Promise<Uint8Array> {
   const source = await screenSource(64);
   const img = source.thumbnail.resize({ width: 64, height: 36, quality: 'good' });
@@ -45,7 +37,6 @@ export async function screenSignature(): Promise<Uint8Array> {
   return gray;
 }
 
-/** Fraction of pixels (0 to 1) that changed significantly. Cursor and clock movements barely register. */
 export function difference(a: Uint8Array, b: Uint8Array): number {
   let changed = 0;
   for (let i = 0; i < a.length; i++) if (Math.abs(a[i]! - b[i]!) > 24) changed++;
@@ -56,11 +47,6 @@ const AUTO_INTERVAL_MS = 2500;
 const MIN_CHANGE = 0.08;
 const MIN_BETWEEN_READS_MS = 20_000;
 
-/**
- * Automatic screen reading: checks the screen every 2.5s (local thumbnail, free)
- * and, when it changes significantly and then settles (new slide, another code file),
- * performs a full read. At most one read every 20s to avoid unnecessary spend.
- */
 export class AutoScreenReader {
   private timer: NodeJS.Timeout | null = null;
   private baseline: Uint8Array | null = null;
@@ -68,11 +54,6 @@ export class AutoScreenReader {
   private pending = false;
   private lastReadAt = 0;
 
-  /**
-   * `canInspect`: when stealth mode is off, Ponto's own windows appear in the
-   * screenshot, so a streaming chat response would count as "screen changed"
-   * (causing an infinite loop).
-   */
   constructor(
     private readonly read: () => Promise<void>,
     private readonly canInspect: () => boolean,
@@ -113,7 +94,6 @@ export class AutoScreenReader {
       return;
     }
     if (difference(this.baseline, current) >= MIN_CHANGE) this.pending = true;
-    // Only reads once the screen has settled (scrolling or animation finished).
     const settled = previous !== null && difference(previous, current) < 0.02;
     if (!this.pending || !settled || Date.now() - this.lastReadAt < MIN_BETWEEN_READS_MS) return;
     this.pending = false;

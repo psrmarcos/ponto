@@ -24,7 +24,6 @@ describe('buildMessages', () => {
       transcriptChars: 0,
     }));
     const m = buildMessages({ ...base, history });
-    // system + 2 per turn + current question
     expect(m.length).toBe(1 + HISTORY_TURNS * 2 + 1);
     expect(m[1]?.content).toBe(`p${20 - HISTORY_TURNS}`);
     expect((m[2]?.content as string).length).toBeLessThan(1300);

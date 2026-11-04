@@ -1,4 +1,3 @@
-/** Provisional Ponto logo: a letter P whose bowl is a speech bubble with a dot inside. */
 export function Logo({ size = 30 }: { size?: number }) {
   return (
     <span className="logo" aria-hidden="true" style={{ width: size, height: size }}>

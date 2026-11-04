@@ -10,7 +10,6 @@ interface CaptureItem {
   at: number;
   source: Source;
 }
-/** History lives only in this window's memory: closing the app clears it. */
 const MAX_HISTORY = 12;
 
 const SOURCE_LABEL: Record<Source, string> = {
@@ -19,11 +18,6 @@ const SOURCE_LABEL: Record<Source, string> = {
   auto: 'Automática',
 };
 
-/**
- * Screen capture window: full screenshot (Ctrl+Shift+S) or automatic capture when
- * the screen changes. The AI answer appears in the chat; this panel displays the
- * captures from the current app session with back/forward navigation.
- */
 export function Screen() {
   const [history, setHistory] = useState<CaptureItem[]>([]);
   const [index, setIndex] = useState(0);
@@ -36,7 +30,7 @@ export function Screen() {
     () =>
       window.ponto.on('screen.read', (d) => {
         setHistory((h) => [...h, d].slice(-MAX_HISTORY));
-        setIndex(Number.MAX_SAFE_INTEGER); // jump to the newest capture
+        setIndex(Number.MAX_SAFE_INTEGER);
         setCapturing(false);
       }),
     [],

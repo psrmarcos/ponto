@@ -8,14 +8,11 @@ import { utterances, chatMessages, sessions, aiUsage } from '../db/schema';
 import { SettingsService } from '../settings/settings.service';
 import { EventsService } from '../events/events.service';
 
-/** Call context included with each chat question: only the recent tail, to keep token spend low. */
 const MAX_CONTEXT_CHARS = 6000;
 const MAX_CONTEXT_UTTERANCES = 40;
 
-/** Summary of the beginning of the call, so chat doesn't resend the entire transcript. In-memory only. */
 export interface PartialSummary {
   text: string;
-  /** Utterances with startMs up to here are covered by the summary. */
   upToMs: number;
 }
 
@@ -24,9 +21,7 @@ export class SessionsService {
   private readonly utteranceListeners = new Set<(u: Utterance) => void>();
   private readonly finishListeners = new Set<(sessionId: string) => void>();
   private readonly partials = new Map<string, PartialSummary>();
-  /** Increments when utterances are cleared: consumers holding older transcript state know to discard it. */
   private readonly versions = new Map<string, number>();
-  /** Sessions currently generating meeting minutes (so the list UI can show status). */
   readonly generatingSummary = new Set<string>();
 
   onFinish(fn: (sessionId: string) => void): () => void {
@@ -46,7 +41,6 @@ export class SessionsService {
     return this.versions.get(sessionId) ?? 0;
   }
 
-  /** Notifies listeners that react to each new utterance (e.g. automatic suggestions). */
   onNewUtterance(fn: (u: Utterance) => void): () => void {
     this.utteranceListeners.add(fn);
     return () => this.utteranceListeners.delete(fn);
@@ -109,7 +103,6 @@ export class SessionsService {
       }));
   }
 
-  /** How much the session spent, broken down by usage source. */
   async spend(sessionId: string): Promise<SpendBySource[]> {
     const rows = await this.db
       .select({
@@ -152,7 +145,6 @@ export class SessionsService {
     this.partials.delete(id);
   }
 
-  /** Utterances after `afterMs` (startMs), in chronological order. */
   async utterancesAfter(sessionId: string, afterMs: number): Promise<Utterance[]> {
     return this.db
       .select()
@@ -161,7 +153,6 @@ export class SessionsService {
       .orderBy(asc(utterances.startMs));
   }
 
-  /** "[Marcos] text" per line, using the configured user name for the microphone channel. */
   async format(list: Pick<Utterance, 'channel' | 'speaker' | 'text'>[]): Promise<string> {
     const { userName } = await this.settings.get();
     return list
@@ -189,13 +180,8 @@ export class SessionsService {
     return this.db.select().from(utterances).where(eq(utterances.sessionId, sessionId)).orderBy(asc(utterances.startMs));
   }
 
-  /**
-   * Deletes session utterances up to `upToMs` (startMs). The cutoff protects
-   * utterances that arrived after the user clicked clear.
-   */
   async clearUtterances(sessionId: string, upToMs: number): Promise<void> {
     await this.db.delete(utterances).where(and(eq(utterances.sessionId, sessionId), lte(utterances.startMs, upToMs)));
-    // The partial call summary and cached transcript in conversations referred to what was deleted.
     this.partials.delete(sessionId);
     this.versions.set(sessionId, this.version(sessionId) + 1);
     this.events.emit({ type: 'transcription.cleared', sessionId, upToMs });
@@ -209,11 +195,6 @@ export class SessionsService {
     return utterance;
   }
 
-  /**
-   * Recent tail of the conversation as plain text, oldest to newest, capped by
-   * size. Placed in the user message (not the static prefix) so it doesn't
-   * invalidate the provider's prompt cache on every new utterance.
-   */
   async recentContext(sessionId: string, maxUtterances = MAX_CONTEXT_UTTERANCES): Promise<string | null> {
     const recent = await this.db
       .select({ channel: utterances.channel, speaker: utterances.speaker, text: utterances.text })

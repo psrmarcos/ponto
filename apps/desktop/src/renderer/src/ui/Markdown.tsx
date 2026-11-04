@@ -1,14 +1,8 @@
 import { Fragment, type ReactNode } from 'react';
 import { highlightCode } from './highlight';
 
-/**
- * Lightweight Markdown renderer for AI responses: paragraphs, lists, **bold**,
- * `code`, and ``` blocks. Everything turns into React elements (never innerHTML),
- * so model-generated text can never execute scripts.
- */
 export function Markdown({ text }: { text: string }) {
   const blocks: ReactNode[] = [];
-  // ```lang ... ``` becomes a syntax-highlighted code block; the rest becomes paragraphs and lists.
   const re = /```([\w+#.-]*)[^\n]*\n?([\s\S]*?)(?:```|$)/g;
   let lastIndex = 0;
   let n = 0;

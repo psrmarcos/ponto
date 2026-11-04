@@ -11,21 +11,7 @@ import { ChannelStream } from './live-stream';
 import { SpeechDetector, FRAME_MS, type SpeechSegment } from './vad';
 import { toWav } from './wav';
 
-/**
- * Audio capture engine. Runs exclusively inside the hidden capture window.
- *
- * Microphone and system audio become two independent channels, each with its
- * own speech detector. Every sliced utterance is sent to the local API as WAV;
- * the API transcribes it and broadcasts to all windows over WebSocket.
- */
-
 const LEVEL_INTERVAL_MS = 100;
-/**
- * Without headphones, the microphone picks up the speakers and the other person's
- * speech bleeds back as if it were yours. A microphone utterance that overlaps
- * for most of its duration (70%+ of the time) with system speech is treated as
- * echo and discarded.
- */
 const ECHO_THRESHOLD = 0.7;
 const ECHO_RETENTION_MS = 60_000;
 const WORKLET_URL = new URL('./collector.worklet.js', document.baseURI).href;
@@ -36,11 +22,8 @@ interface Channel {
   source: MediaStreamAudioSourceNode;
   node: AudioWorkletNode;
   detector: SpeechDetector;
-  /** Frames received since the start of the session: acts as the channel clock. */
   frames: number;
-  /** Where this channel started, in session ms. */
   baseMs: number;
-  /** Live streaming (Deepgram). While active, utterances are not sent in batch. */
   live: ChannelStream | null;
 }
 
@@ -50,13 +33,10 @@ class CaptureEngine {
   private channels: Channel[] = [];
   private session: Session | null = null;
   private levelsTimer: ReturnType<typeof setInterval> | null = null;
-  /** Commands run sequentially so starting and immediately stopping never race. */
   private queue: Promise<void> = Promise.resolve();
-  /** Session frame indices (20 ms steps) where system audio had active speech. */
   private systemSpeechFrames = new Set<number>();
   private streaming: { ws: string; token: string } | null = null;
 
-  /** Deepgram with streaming enabled: opens one stream per channel; otherwise batch mode. */
   private async resolveStreaming(): Promise<{ ws: string; token: string } | null> {
     try {
       const settings = await api.get<Settings>('/settings');
@@ -89,8 +69,6 @@ class CaptureEngine {
     const session = await api.post<Session>('/sessions', {});
     this.session = session;
     this.streaming = await this.resolveStreaming();
-    // Request 16 kHz directly: Chromium resamples with a high-quality filter.
-    // If the sound card rejects 16 kHz, the worklet downsamples from native rate.
     const ctx = createAudioContext();
     this.ctx = ctx;
     await ctx.audioWorklet.addModule(WORKLET_URL);
@@ -135,7 +113,6 @@ class CaptureEngine {
     });
   }
 
-  /** System audio via getDisplayMedia: main responds with screen + loopback without a picker. */
   private async captureSystemAudio(): Promise<MediaStream | null> {
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     stream.getVideoTracks().forEach((t) => t.stop());
@@ -151,7 +128,6 @@ class CaptureEngine {
     const channel: Channel = { id, stream, source, node, detector: new SpeechDetector(), frames: 0, baseMs, live };
     node.port.onmessage = (msg: MessageEvent<Float32Array>) => this.onFrame(channel, msg.data);
     source.connect(node);
-    // Headset unplugged, permission revoked, etc.
     stream.getAudioTracks()[0]?.addEventListener('ended', () => {
       const sources = { ...this.state.sources, [id]: false };
       this.publish({
@@ -169,7 +145,6 @@ class CaptureEngine {
     const segment = channel.detector.process(frame, tMs);
     if (channel.id === 'system' && channel.detector.inSpeech) this.markSystemSpeech(tMs);
     if (channel.live && !channel.live.failed) {
-      // Without headphones, the microphone hears the speaker: don't open your utterance while computer audio is speaking.
       const canStart = channel.id === 'system' || !this.systemSpeechFrames.has(Math.floor(tMs / FRAME_MS));
       channel.live.process(frame, tMs, channel.detector.inSpeech, canStart);
       return;
@@ -180,7 +155,6 @@ class CaptureEngine {
   private markSystemSpeech(tMs: number): void {
     const frameIndex = Math.floor(tMs / FRAME_MS);
     this.systemSpeechFrames.add(frameIndex);
-    // Periodically prune old frame indices that are no longer needed for comparison.
     if (frameIndex % 500 === 0) {
       const cutoff = frameIndex - ECHO_RETENTION_MS / FRAME_MS;
       for (const x of this.systemSpeechFrames) if (x < cutoff) this.systemSpeechFrames.delete(x);
@@ -212,7 +186,6 @@ class CaptureEngine {
     });
   }
 
-  /** Flushes any speech in progress so nothing is lost when pausing or stopping. */
   private flushAll(): void {
     for (const c of this.channels) {
       const segment = c.detector.flush(c.baseMs + c.frames * FRAME_MS);
@@ -281,10 +254,8 @@ function formatError(err: unknown, sourceName: string): string {
   return `Não consegui abrir o ${sourceName}.`;
 }
 
-/** Starts the capture engine. Called by main.tsx when running inside the capture window. */
 export function startCaptureEngine(): void {
   const engine = new CaptureEngine();
   window.ponto.on('capture.command', (cmd) => engine.command(cmd));
-  // Notify main that the capture window is ready (and reset stale state if reloaded).
   window.ponto.send('capture.status', INITIAL_CAPTURE_STATE);
 }

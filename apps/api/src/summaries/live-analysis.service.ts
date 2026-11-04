@@ -16,13 +16,11 @@ import { EventsService } from '../events/events.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { AiTextService } from '../ai/ai-text.service';
 
-/** Minimum interval between analysis runs (and only when enough new speech arrived). */
 const SUMMARY_INTERVAL_MS = 45_000;
 const MIN_SUMMARY_CHARS = 300;
 const INSIGHTS_INTERVAL_MS = 40_000;
 const MIN_INSIGHTS_CHARS = 250;
 const MAX_INSIGHTS = 30;
-/** Thresholds for locally computed voice insights (zero AI cost). */
 const HIGH_SHARE = 0.7;
 const HIGH_PACE = 175;
 const LONG_TURN_SEC = 90;
@@ -31,18 +29,15 @@ const MIN_VOICE_TIME_MS = 3 * 60_000;
 interface AnalysisState {
   version: number;
   summary: LiveSummary | null;
-  /** startMs of the last utterance covered by the summary. */
   summaryUpToMs: number;
   lastSummaryAt: number;
   insights: Insight[];
   tone: ConversationTone | null;
   insightsUpToMs: number;
   lastInsightsAt: number;
-  /** Voice warnings already emitted (never repeated in the same session). */
   voiceWarnings: Set<string>;
   running: boolean;
   timer: NodeJS.Timeout | null;
-  /** Whether the tab was opened in this session: analysis only runs once activated. */
   active: Record<LiveSection, boolean>;
 }
 
@@ -85,12 +80,6 @@ const MOOD_MAP: Record<string, ConversationMood> = {
   negative: 'negative',
 };
 
-/**
- * Live call analysis for the Summary and Insights tabs in Transcription. Runs in
- * the background using the fast model, at intervals, only when new speech arrived.
- * Each analysis only starts once the user opens its tab for the first time in the
- * session (and has its own toggle in settings).
- */
 @Injectable()
 export class LiveAnalysisService implements OnModuleInit {
   private readonly log = new Logger('LiveAnalysis');
@@ -118,10 +107,6 @@ export class LiveAnalysisService implements OnModuleInit {
     };
   }
 
-  /**
-   * User opened the tab: activates that analysis in this session and generates
-   * the first version immediately (from what has been spoken so far).
-   */
   async activate(sessionId: string, section: LiveSection): Promise<LiveAnalysis> {
     const s = this.getState(sessionId);
     if (!s.active[section]) {
@@ -141,7 +126,6 @@ export class LiveAnalysisService implements OnModuleInit {
     return this.get(sessionId);
   }
 
-  /** "Regenerate" button: rebuilds the summary from scratch with all utterances so far. */
   async regenerateSummary(sessionId: string): Promise<LiveAnalysis> {
     const s = this.getState(sessionId);
     s.active.summary = true;
@@ -154,7 +138,6 @@ export class LiveAnalysisService implements OnModuleInit {
     } catch (err) {
       this.log.warn(`regenerate summary failed: ${(err as Error).message}`);
     }
-    // Failed or no utterances: keep previous summary.
     if (!s.summary) {
       s.summary = previous.summary;
       s.summaryUpToMs = previous.upTo;
@@ -165,7 +148,6 @@ export class LiveAnalysisService implements OnModuleInit {
   private getState(sessionId: string): AnalysisState {
     const version = this.sessions.version(sessionId);
     let s = this.states.get(sessionId);
-    // Transcript cleared: previous analysis is no longer valid.
     if (!s || s.version !== version) {
       if (s?.timer) clearTimeout(s.timer);
       s = {
@@ -216,7 +198,6 @@ export class LiveAnalysisService implements OnModuleInit {
     } finally {
       s.running = false;
     }
-    // If new utterances are waiting for the interval to elapse, check again later.
     if (this.sessions.version(sessionId) === s.version) {
       const remaining = Math.min(SUMMARY_INTERVAL_MS, INSIGHTS_INTERVAL_MS);
       s.timer ??= setTimeout(() => {
@@ -262,7 +243,6 @@ export class LiveAnalysisService implements OnModuleInit {
     const fresh = utterances.filter((u) => u.startMs > s.insightsUpToMs);
     if (!fresh.length || textLength(fresh) < minChars) return;
     const version = s.version;
-    // Context: include a few utterances before the new ones so the insight makes sense.
     const startIdx = Math.max(0, utterances.indexOf(fresh[0]!) - 6);
     let excerpt = await this.sessions.format(utterances.slice(startIdx));
     if (excerpt.length > 5000) excerpt = `(…)\n${excerpt.slice(-5000)}`;
@@ -288,7 +268,6 @@ export class LiveAnalysisService implements OnModuleInit {
     }
   }
 
-  /** Pace and talk share: measured locally at zero AI cost. Each warning fires at most once per session. */
   private checkVoiceWarnings(sessionId: string, s: AnalysisState, utterances: Utterance[]): void {
     const settings = this.settings;
     void settings.get().then((cfg) => {
@@ -344,7 +323,6 @@ export function computeVoiceMetrics(utterances: Pick<Utterance, 'channel' | 'tex
   };
 }
 
-/** Accepts JSON even with code fences or surrounding text; malformed input returns an empty list. */
 export function parseInsights(raw: string): Array<{ type: InsightType; text: string }> {
   const obj = parseObject(raw);
   let v: unknown = obj ? obj.insights : undefined;
@@ -388,7 +366,6 @@ function parseObject(raw: string): Record<string, unknown> | null {
   }
 }
 
-/** The "tone" object returned alongside insights; if absent or malformed, returns null. */
 export function parseTone(raw: string): Omit<ConversationTone, 'at'> | null {
   const obj = parseObject(raw);
   const t = (obj?.tom ?? obj?.tone) as Record<string, unknown> | undefined;

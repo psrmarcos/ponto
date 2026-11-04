@@ -10,11 +10,6 @@ import { ClickThroughService } from './click-through';
 
 const HOME_BG_COLOR = '#16161B';
 
-/**
- * Creates and manages all app windows. Each window is independent (position,
- * size, visibility) and follows the same rules: stealth, z-order, click-through,
- * and Windows white-bar frame protection.
- */
 export class WindowManager {
   private readonly windows = new Map<WindowId, BrowserWindow>();
   readonly stealth: StealthService;
@@ -33,9 +28,6 @@ export class WindowManager {
         this.onChange();
       },
     );
-    // No periodic frame clearing every second: periodic RedrawWindow (with RDW_INVALIDATE)
-    // repaints transparent windows and causes flicker. The white non-client bar is still
-    // cleared on activation messages (`protectFrame`).
     this.zorder = new ZOrderService();
   }
 
@@ -67,7 +59,6 @@ export class WindowManager {
   toggle(id: WindowId, visible?: boolean): void {
     const w = this.get(id);
     if (!w) return;
-    // Minimized (no taskbar icon due to stealth): the Home button restores it.
     if (w.isMinimized() && visible !== false) {
       w.restore();
       w.focus();
@@ -77,7 +68,6 @@ export class WindowManager {
     const show = visible ?? !w.isVisible();
     if (show === w.isVisible()) return;
     if (show) {
-      // Home is a regular window and receives focus. Floating windows never steal focus from the call.
       if (WINDOW_DEFINITIONS[id].floating) w.showInactive();
       else w.show();
     } else {
@@ -98,13 +88,10 @@ export class WindowManager {
       minHeight: def.minHeight,
       show: false,
       frame: false,
-      // Floating windows are transparent; Home is opaque (no white bar and native OS corners).
       transparent: def.floating,
       backgroundColor: def.floating ? '#00000000' : HOME_BG_COLOR,
       hasShadow: !def.floating,
-      // resizable:false on a transparent window makes Windows draw a white top bar.
       resizable: true,
-      // Without WS_THICKFRAME Windows does not draw a frame/halo around floating windows.
       thickFrame: !def.floating,
       roundedCorners: !def.floating,
       skipTaskbar: true,
@@ -119,7 +106,6 @@ export class WindowManager {
         contextIsolation: true,
         nodeIntegration: false,
         spellcheck: false,
-        // Without this Chromium throttles background window timers and streaming stutters.
         backgroundThrottling: false,
       },
     });
@@ -143,7 +129,6 @@ export class WindowManager {
     const rememberBounds = () => this.prefs.update((p) => (p.windows[id] = { ...p.windows[id], bounds: win.getBounds() }));
     win.on('moved', rememberBounds);
     win.on('resized', rememberBounds);
-    // Closing (Alt+F4 etc.) only hides: windows live for the lifetime of the app.
     win.on('close', (e) => {
       if (!quitting) {
         e.preventDefault();
@@ -151,7 +136,6 @@ export class WindowManager {
       }
     });
 
-    // External links open in the default browser, never inside the app.
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (e) => e.preventDefault());
 
@@ -172,7 +156,6 @@ export class WindowManager {
     return win;
   }
 
-  /** Uses saved bounds if they still fit on any display; otherwise falls back to the default position. */
   private initialBounds(id: WindowId, saved?: Rect): Rectangle {
     const def = WINDOW_DEFINITIONS[id];
     if (saved && screen.getAllDisplays().some((d) => intersects(d.workArea, saved))) return saved;
@@ -187,7 +170,6 @@ export function markQuitting(): void {
 }
 
 function intersects(a: Rectangle, b: Rectangle): boolean {
-  // Requires at least 80x40 px visible so the window can be dragged back.
   const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return w >= 80 && h >= 40;

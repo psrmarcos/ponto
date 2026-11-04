@@ -8,7 +8,6 @@ import { utterances, chatMessages, sessions, aiUsage } from '../db/schema';
 const DAY_MS = 86_400_000;
 const CHART_DAYS = 14;
 
-/** App usage statistics for the Home overview. Computed locally from SQLite, zero AI cost. */
 @Injectable()
 export class StatsService {
   constructor(@Inject(DB) private readonly db: Database) {}
@@ -20,7 +19,6 @@ export class StatsService {
     const chartStart = new Date(today.getTime() - (CHART_DAYS - 1) * DAY_MS);
     const weekStart = new Date(today.getTime() - 6 * DAY_MS);
 
-    // One row per session that has utterances: when it started, how long it lasted, and which agent was used.
     const perSession = await this.db
       .select({
         id: sessions.id,
@@ -117,7 +115,6 @@ export class StatsService {
   }
 }
 
-/** Local date in YYYY-MM-DD format. */
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

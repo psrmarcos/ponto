@@ -3,18 +3,10 @@ import type { Utterance } from '@ponto/shared';
 import { SessionsService } from '../sessions/sessions.service';
 import { AiTextService } from '../ai/ai-text.service';
 
-/** Once utterances outside the summary exceed this length, the beginning is summarized. */
 export const RAW_CHARS_LIMIT = 9000;
-/** The recent end of the conversation always stays as raw text (most relevant for answering). */
 export const TRAILING_RAW_CHARS = 3000;
 const DEBOUNCE_MS = 3000;
 
-/**
- * Rolling summary of the beginning of the call. Runs in the background using the
- * fast model, off the critical response path: when chat needs it, the summary is
- * already ready. That way a one-hour call never sends 60 minutes of transcript on
- * every question.
- */
 @Injectable()
 export class CompactionService implements OnModuleInit {
   private readonly log = new Logger('Compaction');
@@ -69,7 +61,6 @@ export class CompactionService implements OnModuleInit {
           },
         ],
       });
-      // If utterances were cleared while the summary was being generated, discard it.
       if (!summary || this.sessions.version(sessionId) !== version) return;
       this.sessions.setPartialSummary(sessionId, { text: summary, upToMs: batch[batch.length - 1]!.startMs });
     } catch (e) {
@@ -80,7 +71,6 @@ export class CompactionService implements OnModuleInit {
   }
 }
 
-/** Utterances to summarize: everything except the recent tail, and only once the total exceeds the limit. */
 export function pickBatch<U extends Pick<Utterance, 'text' | 'startMs'>>(utterances: U[]): U[] {
   const total = utterances.reduce((n, u) => n + u.text.length + 16, 0);
   if (total <= RAW_CHARS_LIMIT) return [];

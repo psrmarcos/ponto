@@ -20,29 +20,17 @@ import {
   type PreviousTurn,
 } from './prompt';
 
-/** Batches tiny streaming deltas and emits at most every N ms (fewer messages, fewer re-renders). */
 const DELTA_INTERVAL_MS = 40;
 const MAX_TOKENS = 800;
 const MAX_REASONING_TOKENS = 2500;
-/** How long chat waits for in-flight transcriptions before answering. */
 const TRANSCRIPTION_WAIT_MS = 1200;
-/** Maximum new utterances sent in a single turn (older ones are covered by the call summary). */
 const MAX_NEW_UTTERANCES_CHARS = 8000;
-/** Once transcript chars in history exceed this threshold, replace older parts with the call summary. */
 const MAX_HISTORY_TRANSCRIPT_CHARS = 9000;
 
-/**
- * Call transcript state already sent in this conversation. Transcript is sent
- * incrementally (append-only): each question carries only utterances since the
- * previous question, and history keeps what was sent. That way the message prefix
- * stays identical and the provider reuses its prompt cache. When accumulated text
- * grows large, older utterances are replaced by the call summary.
- */
 interface ConversationCallState {
   sessionId: string;
   version: number;
   summary: PartialSummary | null;
-  /** startMs of the last utterance already sent. */
   cursorMs: number;
 }
 
@@ -51,12 +39,9 @@ interface Conversation {
   spendUsd: number;
   inFlight: AbortController | null;
   call: ConversationCallState | null;
-  /** Summary of turns removed from history when compressed. */
   summary: string | null;
-  /** From the last response: used by the context window inspector. */
   agentId: string | null;
   lastUsage: AiUsage | null;
-  /** Extra spend unlocked on the fly when the conversation hits its budget cap. */
   extraUsd: number;
 }
 
@@ -73,7 +58,6 @@ const NEW_CONVERSATION = (): Conversation => ({
   extraUsd: 0,
 });
 
-/** Cheap token estimate: in Portuguese ~3.5 chars per token. */
 const estimateTokens = (chars: number) => Math.ceil(chars / 3.5);
 
 @Injectable()
@@ -92,7 +76,6 @@ export class ChatService {
     private readonly aiText: AiTextService,
   ) {}
 
-  /** Breakdown of what the next call in this conversation will send, plus actual usage from the last response. */
   async context(conversationId: string, agentId?: string): Promise<ConversationContext> {
     const conv = this.conversations.get(conversationId) ?? NEW_CONVERSATION();
     const cfg = await this.settings.get();
@@ -131,11 +114,6 @@ export class ChatService {
     };
   }
 
-  /**
-   * Compresses the conversation: turns are replaced by a short summary placed at
-   * the start of subsequent calls. Previously sent transcript returns via the
-   * call summary and utterances since it.
-   */
   async compress(conversationId: string, sessionId?: string | null): Promise<ConversationContext> {
     const conv = this.conversations.get(conversationId);
     if (!conv?.history.length) return this.context(conversationId);
@@ -160,12 +138,9 @@ export class ChatService {
     return this.context(conversationId);
   }
 
-  /** Starts answering in the background and immediately returns the responseId. */
-  /** `label`: how the question appears in saved history (e.g. a question detected in the call). */
   async send(request: ChatRequest, options: { label?: string } = {}): Promise<{ responseId: string }> {
     const { responseId } = request;
     const conv = this.getConversation(request.conversationId);
-    // A new question cancels the previous one in the same conversation: don't pay for an answer nobody will read.
     conv.inFlight?.abort();
     const controller = new AbortController();
     conv.inFlight = controller;
@@ -173,18 +148,11 @@ export class ChatService {
     return { responseId };
   }
 
-  /** Checks the provider's cached model list. When in doubt, trusts the selected model. */
   private async supportsVision(provider: AiProvider, model: string): Promise<boolean> {
     const list = await provider.listModels().catch(() => null);
     return list?.find((m) => m.id === model)?.supportsImages ?? true;
   }
 
-  /**
-   * Utterances that this conversation hasn't sent yet. Resets the call state
-   * (replacing old transcript in history with the call summary) when the session
-   * changed, when utterances were cleared, or when accumulated transcript is large
-   * and a newer summary is available. The cursor advances only when the response finishes.
-   */
   private async newUtterances(conv: Conversation, sessionId: string): Promise<{ text: string | null; cursorMs: number }> {
     const partial = this.sessions.partialSummary(sessionId);
     const version = this.sessions.version(sessionId);
@@ -212,7 +180,6 @@ export class ChatService {
     return { text, cursorMs };
   }
 
-  /** Saves the exchange for later review in the session. Failure here must not break the response. */
   private async persistExchange(request: ChatRequest, question: string, answer: string, usage: AiUsage | null): Promise<void> {
     const automatic = request.conversationId.startsWith('auto:');
     const base = { sessionId: request.sessionId ?? null, conversationId: request.conversationId, automatic };
@@ -225,7 +192,6 @@ export class ChatService {
     }
   }
 
-  /** Unlocks additional spend in this conversation (only for this conversation; default budget remains unchanged). */
   unlock(conversationId: string, usd: number): void {
     this.getConversation(conversationId).extraUsd += usd;
   }
@@ -269,9 +235,7 @@ export class ChatService {
       const agent = await this.agents.get(request.agentId).catch(() => this.agents.get('general'));
       const provider = this.providers.get(cfg.defaultProvider);
       let model = agent.model ?? cfg.defaultModel;
-      // With an image (screenshot, attachment), switch to the vision model if the chosen model lacks vision.
       if (request.images.length && !(await this.supportsVision(provider, model))) model = cfg.visionModel;
-      // The latest utterance (usually the question) may be 1-2s away from finishing transcription: wait up to 1.2s and proceed (speed matters most).
       if (request.sessionId) await this.transcription.waitForPending(request.sessionId, TRANSCRIPTION_WAIT_MS);
       const call = request.sessionId ? await this.newUtterances(conv, request.sessionId).catch(() => null) : null;
       const messages = buildMessages({
@@ -319,7 +283,6 @@ export class ChatService {
       if (call && conv.call) conv.call.cursorMs = call.cursorMs;
       if (conv.history.length > HISTORY_TURNS * 2) {
         conv.history.splice(0, HISTORY_TURNS);
-        // Utterances that were in discarded turns come back via call summary + utterances since it.
         conv.call = null;
       }
       if (usage) {
@@ -332,7 +295,6 @@ export class ChatService {
     } catch (e) {
       if (timer) clearTimeout(timer);
       if (controller.signal.aborted) {
-        // Cancelled by a new question: close the response with what has arrived so far.
         flush();
         this.events.emit({ type: 'chat.end', responseId, usage: null });
         return;

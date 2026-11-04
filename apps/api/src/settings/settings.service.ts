@@ -8,7 +8,6 @@ import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class SettingsService {
-  /** In-memory cache: settings are read on every AI call. */
   private current: Settings | null = null;
 
   constructor(
@@ -21,7 +20,6 @@ export class SettingsService {
     const rows = await this.db.select().from(settings);
     const saved: Record<string, unknown> = {};
     for (const r of rows) saved[r.key] = r.value;
-    // Invalid old values (e.g. after schema evolution) fall back to defaults.
     const parsed = Settings.partial().safeParse(saved);
     this.current = { ...DEFAULT_SETTINGS, ...(parsed.success ? parsed.data : {}) };
     return this.current;

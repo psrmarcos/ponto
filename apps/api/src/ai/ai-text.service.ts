@@ -5,11 +5,6 @@ import { UsageService } from '../usage/usage.service';
 import { ProvidersService } from './providers/providers.service';
 import type { AiMessage } from './providers/provider';
 
-/**
- * Generates a complete text response at once (without streaming to the UI) for
- * background tasks: meeting minutes, initial call summary, compaction, translation.
- * Uses the fast model by default and records token usage.
- */
 @Injectable()
 export class AiTextService {
   constructor(

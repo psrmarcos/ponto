@@ -6,7 +6,6 @@ import { TranslationService } from './translation.service';
 export class TranslationController {
   constructor(private readonly translation: TranslationService) {}
 
-  /** Translations already generated in this session (for windows opened later). */
   @Get(':id/translations')
   list(@Param('id') id: string): UtteranceTranslation[] {
     return this.translation.list(id);

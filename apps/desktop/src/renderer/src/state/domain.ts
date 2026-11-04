@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import type { Agent, Settings, UsageSummary } from '@ponto/shared';
 import { api } from '../api/client';
 
-/** API data shared across windows (each window keeps its own copy, synced over WebSocket). */
 interface Domain {
   settings: Settings | null;
   agents: Agent[];
@@ -15,7 +14,6 @@ export const useDomain = create<Domain>((set) => ({
   agents: [],
   usage: null,
   saveSettings: async (partial) => {
-    // Optimistic update: UI changes immediately; WebSocket confirms across all windows.
     set((s) => (s.settings ? { settings: { ...s.settings, ...partial } } : s));
     const updated = await api.patch<Settings>('/settings', partial);
     set({ settings: updated });

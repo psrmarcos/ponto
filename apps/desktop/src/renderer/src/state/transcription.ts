@@ -3,26 +3,18 @@ import type { AudioChannel, AudioLevels, Utterance, UtteranceTranslation } from 
 import { api } from '../api/client';
 import { useAppState } from './app';
 
-/**
- * Utterances of the current session (or the last one, after stopping). Loaded
- * from the API on open/reconnect and updated via WebSocket events.
- */
 interface TranscriptionStore {
   sessionId: string | null;
   utterances: Utterance[];
   notice: string | null;
   levels: AudioLevels;
-  /** In-progress speech per channel (streaming): provisional text that may still change. */
   partials: Partial<Record<AudioChannel, { text: string; startMs: number }>>;
-  /** Translation per utterance (by id) when live translation is enabled. */
   translations: Record<string, UtteranceTranslation>;
-  /** Requested clear still within undo window: utterances are only deleted from the DB once the timer expires. */
   undoable: { utterances: Utterance[]; upToMs: number } | null;
   clear: () => void;
   undo: () => void;
 }
 
-/** Grace period to undo clearing before permanently deleting from the database. */
 const UNDO_TIMEOUT_MS = 8000;
 let clearTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -37,7 +29,7 @@ export const useTranscription = create<TranscriptionStore>((set, get) => ({
   clear: () => {
     const { sessionId, utterances, undoable } = get();
     if (!sessionId || !utterances.length) return;
-    if (undoable) confirmClear(); // any previous pending clear is committed immediately
+    if (undoable) confirmClear();
     const upToMs = Math.max(...utterances.map((u) => u.startMs));
     set({ utterances: [], undoable: { utterances, upToMs } });
     clearTimer = setTimeout(confirmClear, UNDO_TIMEOUT_MS);
@@ -51,7 +43,6 @@ export const useTranscription = create<TranscriptionStore>((set, get) => ({
   },
 }));
 
-/** Grace period expired: delete from DB (other windows and chat context also forget). */
 function confirmClear(): void {
   if (clearTimer) clearTimeout(clearTimer);
   clearTimer = null;
@@ -64,7 +55,6 @@ function confirmClear(): void {
   });
 }
 
-/** Utterances can arrive out of order (both channels transcribe in parallel): insert in chronological order. */
 function insertSorted(list: Utterance[], item: Utterance): Utterance[] {
   if (list.some((x) => x.id === item.id)) return list;
   let i = list.length;
@@ -103,7 +93,6 @@ export function initTranscription(): void {
       .catch(() => {});
 
   let lastError: string | null = null;
-  // New session: clear list. Stopped session: keep utterances visible for reading afterwards.
   useAppState.subscribe((s) => {
     const id = s.state?.capture.sessionId ?? null;
     if (id && id !== useTranscription.getState().sessionId) {

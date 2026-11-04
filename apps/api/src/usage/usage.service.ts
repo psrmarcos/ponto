@@ -7,7 +7,6 @@ import type { Database } from '../db/connection';
 import { aiUsage } from '../db/schema';
 import { EventsService } from '../events/events.service';
 
-/** Records the cost of each AI call and maintains the monthly summary. */
 @Injectable()
 export class UsageService {
   constructor(

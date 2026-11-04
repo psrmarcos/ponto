@@ -1,11 +1,6 @@
 import { CaretDown, Check } from '@phosphor-icons/react';
 import { Menu } from './Menu';
 
-/**
- * In-window option selector. Replaces the native `<select>`: the open popup of
- * a native `<select>` is a separate OS window and therefore is NOT excluded from
- * screen recordings like the rest of the app. Never use `<select>` in Ponto.
- */
 export function Select<T extends string>({
   value,
   options,

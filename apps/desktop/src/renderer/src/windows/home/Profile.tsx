@@ -86,7 +86,6 @@ function KeyRow(props: {
     try {
       props.onChange(await window.ponto.invoke('secrets.set', { id: props.id, value: v }));
       setValue('');
-      // The API receives the new key over the private parent channel; a brief moment later it can be tested.
       if (v && props.testable) setTimeout(() => void testKey(), 300);
     } catch (err) {
       setError((err as Error).message);

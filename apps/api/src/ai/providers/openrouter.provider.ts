@@ -6,7 +6,6 @@ import { http } from '../../common/http';
 import { readSse } from './sse';
 
 const BASE = 'https://openrouter.ai/api/v1';
-/** Models that reason by default even without being asked; in normal mode we send minimal effort. */
 const REASONS_BY_DEFAULT = /^(google\/|openai\/(gpt-5|o[0-9]))/;
 const ONE_HOUR = 60 * 60 * 1000;
 
@@ -31,7 +30,6 @@ interface OpenRouterChunk {
   error?: { message?: string; code?: number };
 }
 
-/** Models that accept explicit `cache_control` on OpenRouter (others cache automatically or not at all). */
 const acceptsExplicitCache = (model: string): boolean => model.startsWith('anthropic/') || model.startsWith('google/');
 
 @Injectable()
@@ -41,7 +39,6 @@ export class OpenRouterProvider implements AiProvider {
   readonly implemented = true;
   private readonly log = new Logger('OpenRouter');
   private modelsCache: { at: number; list: AiModel[] } | null = null;
-  /** Models that accept the `reasoning` parameter (returned with the models list). */
   private reasoningModels = new Set<string>();
 
   constructor(private readonly secrets: SecretsService) {}
@@ -56,7 +53,6 @@ export class OpenRouterProvider implements AiProvider {
     return {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
-      // Identifies the app in the OpenRouter dashboard.
       'HTTP-Referer': 'https://github.com/ponto-app/ponto',
       'X-Title': 'Ponto',
     };
@@ -106,14 +102,9 @@ export class OpenRouterProvider implements AiProvider {
       usage: { include: true },
     };
     if (request.temperature !== undefined) body.temperature = request.temperature;
-    // Web search: few results, because each page counts towards input tokens.
     if (request.web) body.plugins = [{ id: 'web', max_results: 3 }];
     if (request.reasoning) body.reasoning = { effort: 'medium', exclude: true };
-    // Gemini and GPT reason by default even without being asked. In a live call that costs seconds and tokens:
-    // measured with gemini-3.8-flash: 5.9s and 478 output tokens vs 2.6s and 36 with 'minimal'.
     else if (REASONS_BY_DEFAULT.test(request.model)) body.reasoning = { effort: 'minimal', exclude: true };
-    // DeepSeek, Qwen, etc. also reason by default, and reasoning can consume the entire
-    // max_tokens before emitting text (empty response). On those models we disable it completely.
     else if (await this.supportsReasoning(request.model)) body.reasoning = { enabled: false };
 
     const r = await http(`${BASE}/chat/completions`, {
@@ -192,7 +183,6 @@ export class OpenRouterProvider implements AiProvider {
       const j = JSON.parse(body) as { error?: { message?: string } };
       if (j.error?.message) return j.error.message;
     } catch {
-      // body is not JSON
     }
     return `O OpenRouter respondeu ${status}.`;
   }

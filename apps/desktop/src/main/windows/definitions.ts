@@ -6,23 +6,13 @@ export interface WindowDefinition {
   height: number;
   minWidth?: number;
   minHeight?: number;
-  /** Initial position within the primary display work area (first run only). */
   position: (area: Rectangle, width: number, height: number) => { x: number; y: number };
   showOnStart: boolean;
-  /**
-   * Floating window (transparent, click-through outside solid areas) or
-   * standard opaque window, like Home.
-   */
   floating: boolean;
 }
 
 const MARGIN = 24;
 
-/**
- * All app windows. To add a new window, declare its id in @ponto/shared
- * (`windows.ts`) and add an entry here; everything else (stealth, z-order,
- * click-through, position persistence) is handled by `WindowManager`.
- */
 export const WINDOW_DEFINITIONS: Record<WindowId, WindowDefinition> = {
   overlay: {
     width: 600,

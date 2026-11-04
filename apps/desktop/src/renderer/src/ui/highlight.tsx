@@ -1,11 +1,5 @@
 import type { ReactNode } from 'react';
 
-/**
- * Lightweight zero-dependency code syntax highlighter: comments, strings,
- * numbers, and keywords for common interview languages (JS/TS, Python, Java,
- * C#, Go, SQL...). Not a full parser, just enough to make code readable at a
- * glance. Emits React `<span>` elements (never innerHTML).
- */
 const KEYWORDS = new Set(
   (
     'abstract as async await break case catch class const continue def default del delete do elif else enum export extends ' +
@@ -42,7 +36,6 @@ export function highlightCode(code: string, language: string): ReactNode[] {
     else if (KEYWORDS.has(sqlish ? token.toLowerCase() : token)) cls = 'hl-kw';
     else if (TYPES.has(token) || /^[A-Z][a-z]\w*$/.test(token)) cls = 'hl-type';
     else if (code.slice(lastIndex).match(/^\s*\(/)) cls = 'hl-fn';
-    // '#' or '--' comment outside its target language: emit only the first char and continue.
     if (cls === null && (token.startsWith('#') || token.startsWith('--'))) {
       output.push(token[0]);
       lastIndex = index + 1;

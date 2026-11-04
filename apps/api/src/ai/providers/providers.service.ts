@@ -3,7 +3,6 @@ import type { AiProviderId, ProviderInfo } from '@ponto/shared';
 import { OpenRouterProvider } from './openrouter.provider';
 import type { AiProvider } from './provider';
 
-/** Providers not yet implemented appear in the list so the user knows they are coming. */
 const UPCOMING: Array<{ id: AiProviderId; name: string }> = [
   { id: 'openai', name: 'OpenAI' },
   { id: 'anthropic', name: 'Anthropic' },

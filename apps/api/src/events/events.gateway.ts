@@ -6,11 +6,6 @@ import { env } from '../env';
 import { isValidToken } from '../common/token.guard';
 import { EventsService } from './events.service';
 
-/**
- * Single API WebSocket (ws://127.0.0.1:<port>/ws?token=...). Only the API sends
- * messages over this channel: windows receive events (streaming AI responses,
- * live transcription...) and make requests over HTTP.
- */
 @WebSocketGateway({ path: '/ws' })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly log = new Logger('WS');

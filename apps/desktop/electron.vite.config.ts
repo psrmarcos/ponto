@@ -4,11 +4,6 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import type { Plugin } from 'vite';
 
-/**
- * Window Content-Security-Policy. Strict in production builds (only scripts from
- * the app itself; network restricted to the local API). In dev, Vite requires
- * inline scripts and the HMR server.
- */
 function csp(): Plugin {
   const base = [
     "default-src 'self'",
@@ -27,18 +22,16 @@ function csp(): Plugin {
         isDev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
         isDev ? "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* ws://localhost:*" : "connect-src http://127.0.0.1:* ws://127.0.0.1:*",
       ].join('; ');
-      return html.replace('<!--CSP-->', `<meta http-equiv="Content-Security-Policy" content="${policy}" />`);
+      return html.replace('</head>', `    <meta http-equiv="Content-Security-Policy" content="${policy}" />\n  </head>`);
     },
   };
 }
 
 export default defineConfig({
   main: {
-    // Keep dependencies external (node_modules), except the shared contract.
     plugins: [externalizeDepsPlugin({ exclude: ['@ponto/shared'] })],
   },
   preload: {
-    // Sandboxed preload: must be a single bundled file without external package requires.
     plugins: [externalizeDepsPlugin({ exclude: ['@ponto/shared', 'zod'] })],
     build: { rollupOptions: { output: { format: 'cjs' } } },
   },

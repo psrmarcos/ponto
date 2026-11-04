@@ -3,11 +3,6 @@ import { http } from '../../common/http';
 import { SecretsService } from '../../secrets/secrets.service';
 import { SttError, messageForStatus, type SttRequest, type SttProvider, type SttResult } from './stt-provider';
 
-/**
- * Transcription via OpenRouter (same key as chat). Batch mode: sends each
- * complete utterance once the speaker pauses. With whisper-large-v3-turbo it
- * takes ~2s for 8s of audio and costs ~US$ 0.0002 per minute.
- */
 @Injectable()
 export class OpenRouterStt implements SttProvider {
   readonly id = 'openrouter' as const;

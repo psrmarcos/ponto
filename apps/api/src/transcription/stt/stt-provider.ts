@@ -1,7 +1,6 @@
 import type { Settings, SttProviderId } from '@ponto/shared';
 
 export interface SttRequest {
-  /** 16-bit PCM WAV, mono, 16 kHz. */
   wav: Buffer;
   model: string;
   language: Settings['language'];
@@ -10,11 +9,9 @@ export interface SttRequest {
 
 export interface SttResult {
   text: string;
-  /** Cost reported by the provider, or estimated from duration when not reported. */
   costUsd: number;
 }
 
-/** A service that turns an audio chunk into text. */
 export interface SttProvider {
   readonly id: SttProviderId;
   transcribe(request: SttRequest, signal: AbortSignal): Promise<SttResult>;

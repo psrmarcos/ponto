@@ -1,15 +1,5 @@
 import type { BrowserWindow } from 'electron';
 
-/**
- * Fix for the Windows "white title bar" artifact on frameless transparent windows.
- *
- * On frameless transparent windows, Windows sometimes paints the non-client area
- * (a white title bar) when activation changes: clicking the window, opening a
- * dialog, or switching apps. That paint persists until the frame is redrawn.
- * Calling `RedrawWindow` with `RDW_FRAME` clears it immediately. Electron does
- * not expose this API, so we call user32 directly via koffi.
- * On macOS/Linux everything here is a no-op.
- */
 type FnRedraw = (hwnd: number, rect: number, rgn: number, flags: number) => boolean;
 
 const RDW_INVALIDATE = 0x0001;
@@ -27,7 +17,6 @@ function load(): FnRedraw | null {
   redraw = null;
   if (process.platform !== 'win32') return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const koffi = require('koffi') as typeof import('koffi');
     const user32 = koffi.load('user32.dll');
     redraw = user32.func(
@@ -50,11 +39,9 @@ export function clearFrame(win: BrowserWindow): void {
   try {
     fn(hwnd(win), 0, 0, RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW);
   } catch {
-    // window was destroyed mid-call
   }
 }
 
-/** Clears shortly after and again slightly later (Windows sometimes paints with a delay). */
 export function scheduleFrameClear(win: BrowserWindow): void {
   setTimeout(() => clearFrame(win), 30);
   setTimeout(() => clearFrame(win), 300);

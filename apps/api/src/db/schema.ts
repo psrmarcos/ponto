@@ -1,11 +1,5 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 
-/**
- * Local database schema (SQLite in WAL mode, stored in the app's userData directory).
- * After modifying this file run `pnpm db:generate` to generate a migration.
- */
-
-/** Domain settings, one row per key, JSON value. */
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value', { mode: 'json' }).notNull(),
@@ -24,7 +18,6 @@ export const agents = sqliteTable('agents', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-/** A call/meeting session. */
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   title: text('title').notNull().default('Sessão sem título'),
@@ -34,7 +27,6 @@ export const sessions = sqliteTable('sessions', {
   summary: text('summary'),
 });
 
-/** Transcript utterances. `channel` separates microphone (you) from system audio (others). */
 export const utterances = sqliteTable(
   'utterances',
   {
@@ -51,7 +43,6 @@ export const utterances = sqliteTable(
   (t) => [index('utterances_session_idx').on(t.sessionId, t.startMs)],
 );
 
-/** Every paid AI call is recorded here: the foundation of spend tracking. */
 export const aiUsage = sqliteTable(
   'ai_usage',
   {
@@ -60,7 +51,6 @@ export const aiUsage = sqliteTable(
     sessionId: text('session_id'),
     provider: text('provider').notNull(),
     model: text('model').notNull(),
-    /** chat, decision (System 1), vision, summary, compaction... */
     source: text('source').notNull(),
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
@@ -70,7 +60,6 @@ export const aiUsage = sqliteTable(
   (t) => [index('usage_created_idx').on(t.createdAt)],
 );
 
-/** Questions and answers exchanged in chat, for reviewing later (mainly per session). */
 export const chatMessages = sqliteTable(
   'chat_messages',
   {

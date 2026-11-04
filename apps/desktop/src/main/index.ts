@@ -12,13 +12,6 @@ import { SecretsService } from './secrets';
 import { captureScreen, AutoScreenReader } from './screen';
 import { readSelectedText } from './selection';
 
-/**
- * Main process: the only process that talks to the operating system. Sets up
- * services, windows, and IPC. Windows render UI and make requests through the
- * typed preload bridge.
- */
-
-// Data directory name (%APPDATA%\Ponto on Windows). Must be called before any getPath.
 app.setName('Ponto');
 CaptureService.prepareBeforeReady();
 
@@ -34,7 +27,6 @@ function start(): void {
   const prefs = new PreferencesService();
   const secrets = new SecretsService();
 
-  // State mirrored across windows. Only broadcasts when something actually changed (prevents re-renders and flicker).
   let lastStateJson = '';
   let scheduled = false;
   const broadcast = () => {
@@ -77,7 +69,6 @@ function start(): void {
     broadcast,
   );
 
-  /** Text selected in any app: sent to chat (which opens if hidden). */
   async function askSelection(): Promise<void> {
     const text = await readSelectedText();
     const w = windows.get('overlay');
@@ -85,7 +76,6 @@ function start(): void {
     emit(w.webContents, 'selection.read', { text: text ?? '' });
   }
 
-  /** Screenshot: chat (overlay) sends it to AI and the Screen window displays a preview. */
   async function readScreen(source: 'manual' | 'auto' = 'manual'): Promise<void> {
     broadcastScreenRead(await captureScreen(), source);
   }
@@ -142,7 +132,6 @@ function start(): void {
       'secrets.status': () => secrets.status(),
       'secrets.set': ({ id, value }) => secrets.set(id, value),
       'file.pickImage': async () => {
-        // Intentionally parentless: a modal dialog attached to a transparent window triggers the white bar on Windows.
         const r = await dialog.showOpenDialog({
           title: 'Adicionar imagem',
           properties: ['openFile'],
@@ -158,7 +147,6 @@ function start(): void {
       'app.quit': () => app.quit(),
       'capture.command': (c) => capture.command(c),
       'screen.read': () => readScreen(),
-      // Higher resolution than standard screenshot so a cropped region stays legible.
       'screen.capture': async () => ({
         dataUrl: await captureScreen({ maxSide: 2560, maxBytes: 1_500_000 }),
         at: Date.now(),
@@ -182,7 +170,6 @@ function start(): void {
         return { path };
       },
       'file.reveal': ({ path }) => {
-        // Only reveal files inside the app's Documents/Ponto folder.
         const folder = resolve(app.getPath('documents'), 'Ponto');
         if (resolve(path).startsWith(folder)) shell.showItemInFolder(path);
       },

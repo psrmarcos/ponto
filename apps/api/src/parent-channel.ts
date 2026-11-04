@@ -1,9 +1,5 @@
 import { MessageToApi, type MessageFromApi } from '@ponto/shared';
 
-/**
- * Private channel with the Electron main process (process.parentPort of the
- * utilityProcess). API keys arrive over this channel and never over the network.
- */
 interface ParentPort {
   on(event: 'message', listener: (e: { data: unknown }) => void): void;
   postMessage(message: unknown): void;

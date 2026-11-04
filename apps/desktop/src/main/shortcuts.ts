@@ -2,7 +2,6 @@ import { globalShortcut } from 'electron';
 import { ShortcutAction } from '@ponto/shared';
 import type { PreferencesService } from './preferences';
 
-/** Global shortcuts (work with any app focused). Configurable on Home. */
 export class ShortcutsService {
   private failed = new Set<ShortcutAction>();
 

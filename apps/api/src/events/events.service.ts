@@ -24,7 +24,6 @@ export class EventsService {
     if (c.readyState === OPEN) c.send(JSON.stringify(e));
   }
 
-  /** Broadcasts to all connected windows. */
   emit(e: WsEvent): void {
     const data = JSON.stringify(e);
     for (const c of this.clients) if (c.readyState === OPEN) c.send(data);

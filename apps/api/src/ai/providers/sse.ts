@@ -1,4 +1,3 @@
-/** Reads a Server-Sent Events stream and yields the parsed JSON of each `data:` line. Ignores comments (`: ...`). */
 export async function* readSse(body: ReadableStream<Uint8Array>): AsyncIterable<unknown> {
   const decoder = new TextDecoder();
   let rest = '';
@@ -14,7 +13,6 @@ export async function* readSse(body: ReadableStream<Uint8Array>): AsyncIterable<
       try {
         yield JSON.parse(data);
       } catch {
-        // broken line: ignore
       }
     }
   }

@@ -3,12 +3,6 @@ import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from '
 import { join } from 'node:path';
 import { SecretId, type SecretStatus } from '@ponto/shared';
 
-/**
- * Vault for API keys. Each value is encrypted with safeStorage (DPAPI on Windows,
- * Keychain on macOS, libsecret on Linux) before being written to disk.
- * Raw values never go to the renderer; they are sent to the API over the private
- * utilityProcess channel.
- */
 export class SecretsService {
   private readonly file = join(app.getPath('userData'), 'secrets.json');
   private encrypted: Partial<Record<SecretId, string>> = {};
@@ -24,7 +18,6 @@ export class SecretsService {
       }
       if (sourceFile === legacyFile) this.save();
     } catch {
-      // no keys stored yet
     }
   }
 
@@ -57,7 +50,6 @@ export class SecretsService {
     return this.status()[id];
   }
 
-  /** All keys in plain text: only for pushing to the API over the private channel. */
   all(): Record<string, string> {
     const r: Record<string, string> = {};
     for (const id of SecretId.options) {
@@ -73,7 +65,7 @@ export class SecretsService {
     try {
       return safeStorage.decryptString(Buffer.from(c, 'base64'));
     } catch {
-      return null; // encrypted under another user/machine
+      return null;
     }
   }
 

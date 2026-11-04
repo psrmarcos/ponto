@@ -1,5 +1,3 @@
-// Copies SQL migration files into dist/ after `tsc` builds.
-// Drizzle reads these files at startup (`migrateDatabase`).
 import { cpSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

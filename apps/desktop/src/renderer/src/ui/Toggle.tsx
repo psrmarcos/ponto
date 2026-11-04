@@ -5,7 +5,6 @@ interface Props {
   disabled?: boolean;
 }
 
-/** Custom on/off switch matching the app's visual style. */
 export function Toggle({ checked, onChange, label, disabled }: Props) {
   return (
     <button

@@ -16,10 +16,6 @@ const PARTS: Record<ContextPart, { name: string; color: string }> = {
   transcription: { name: 'Falas da call no histórico', color: '#56C46B' },
 };
 
-/**
- * Ring indicator in the chat footer showing context window usage. Opens a popover
- * detailing what goes into each call and a button to compact the conversation.
- */
 export function ContextWindow() {
   const conversationId = useChat((s) => s.conversationId);
   const busy = useChat((s) => s.busy);
@@ -37,7 +33,6 @@ export function ContextWindow() {
       .catch(() => undefined);
   }, [conversationId, agent]);
 
-  // Refresh when a response finishes (busy returns to false) and when switching conversations.
   useEffect(() => {
     if (!busy) load();
   }, [busy, total, load]);
@@ -54,7 +49,6 @@ export function ContextWindow() {
     }
   };
 
-  // Actual token count from the last call is more accurate than our heuristic estimate.
   const used = data ? Math.max(data.lastUsage?.inputTokens ?? 0, data.estimatedTotal) : 0;
   const fraction = data?.limit ? Math.min(1, used / data.limit) : 0;
   const partsSum = data?.parts.reduce((n, p) => n + p.tokens, 0) || 1;
@@ -171,7 +165,6 @@ export function ContextWindow() {
 function Ring({ fraction }: { fraction: number }) {
   const r = 7;
   const c = 2 * Math.PI * r;
-  // Show at least a tiny arc when non-zero so the ring doesn't look empty.
   const filled = fraction > 0 ? Math.max(0.04, fraction) : 0;
   const color = fraction > 0.8 ? 'var(--red)' : fraction > 0.5 ? '#F2B84B' : '#8FB0FF';
   return (

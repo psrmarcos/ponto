@@ -14,7 +14,6 @@ installTooltips();
 initAppState();
 
 if (new URLSearchParams(location.search).get('window') === 'capture') {
-  // The hidden capture window renders nothing: it only starts the audio capture engine.
   void import('./capture/engine').then((m) => m.startCaptureEngine());
 } else {
   document.body.dataset.window = currentWindow;

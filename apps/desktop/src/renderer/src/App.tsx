@@ -13,7 +13,6 @@ const WINDOWS: Record<WindowId, () => React.JSX.Element> = {
 };
 
 export function App({ windowId }: { windowId: WindowId }) {
-  // Home is opaque and receives all clicks; floating windows let clicks pass through outside solid areas.
   useClickThrough(windowId !== 'home');
   const WindowComponent = WINDOWS[windowId] ?? Overlay;
   return <WindowComponent />;

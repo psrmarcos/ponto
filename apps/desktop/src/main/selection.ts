@@ -1,15 +1,9 @@
 import { execFile } from 'node:child_process';
 import { clipboard } from 'electron';
 
-/** Selected text longer than this is truncated (chat doesn't need a whole book). */
 const MAX_CHARS = 6000;
 const MARKER = '⁣ponto-selection⁣';
 
-/**
- * Windows script: waits for the user to release the shortcut keys (otherwise
- * simulated Ctrl+C becomes Ctrl+Shift+C), presses Ctrl+C in the focused app,
- * and returns immediately. `keybd_event` is the simplest way without a native module.
- */
 const WINDOWS_SCRIPT = `
 Add-Type -Namespace P -Name K -MemberDefinition '
 [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int k);
@@ -40,17 +34,11 @@ function copySelectionOnWindows(): Promise<void> {
 
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
-/**
- * Grabs the selected text in the focused app: copies (simulated Ctrl+C), reads
- * the clipboard, and restores whatever was in the clipboard before. If nothing
- * was selected, uses whatever was already copied.
- */
 export async function readSelectedText(): Promise<string | null> {
   const before = clipboard.readText();
   if (process.platform === 'win32') {
     clipboard.writeText(MARKER);
     await copySelectionOnWindows();
-    // Target app takes a moment to place the copy on the clipboard.
     let copied = '';
     for (let i = 0; i < 10; i++) {
       await sleep(40);
@@ -61,7 +49,6 @@ export async function readSelectedText(): Promise<string | null> {
     const text = copied && copied !== MARKER ? copied : before;
     return clean(text);
   }
-  // macOS/Linux: uses what you copied (select and press Ctrl/Cmd+C before the shortcut).
   return clean(before);
 }
 

@@ -3,12 +3,8 @@ import { http } from '../../common/http';
 import { SecretsService } from '../../secrets/secrets.service';
 import { SttError, messageForStatus, type SttRequest, type SttProvider, type SttResult } from './stt-provider';
 
-/** Pre-recorded Nova-3 list price per minute. Deepgram does not return cost in the response. */
 const USD_PER_MINUTE = 0.0043;
 
-/**
- * Batch transcription via Deepgram (dedicated key).
- */
 @Injectable()
 export class DeepgramStt implements SttProvider {
   readonly id = 'deepgram' as const;
