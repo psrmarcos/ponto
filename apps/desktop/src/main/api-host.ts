@@ -2,104 +2,105 @@ import { app, utilityProcess, type UtilityProcess } from 'electron';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
-import { MensagemDaApi, PORTA_API_PADRAO, type ConexaoApi, type StatusApi } from '@ponto/shared';
-import type { SegredosService } from './segredos';
+import { MessageFromApi, DEFAULT_API_PORT, type ApiConnection, type ApiStatus } from '@ponto/shared';
+import type { SecretsService } from './secrets';
 
-const ESPERAS_MS = [1000, 2000, 5000, 10_000, 30_000];
+const BACKOFF_MS = [1000, 2000, 5000, 10_000, 30_000];
 
 /**
- * Sobe a API (NestJS) como utilityProcess, vigia e reinicia se cair. A cada
- * execução gera um token novo: só quem tem o token (as nossas janelas) fala com ela.
+ * Spawns the API (NestJS) as a utilityProcess, watches it, and restarts it if
+ * it crashes. Generates a new random token on each run: only holders of the
+ * token (our windows) can talk to it.
  */
 export class ApiHost {
-  private processo: UtilityProcess | null = null;
+  private proc: UtilityProcess | null = null;
   private readonly token = randomBytes(24).toString('hex');
-  private porta = 0;
-  private tentativas = 0;
-  private _status: StatusApi = 'iniciando';
-  private parando = false;
+  private port = 0;
+  private attempts = 0;
+  private _status: ApiStatus = 'starting';
+  private stopping = false;
 
   constructor(
-    private readonly segredos: SegredosService,
-    private readonly aoMudarStatus: () => void,
+    private readonly secrets: SecretsService,
+    private readonly onStatusChange: () => void,
   ) {
-    segredos.aoMudar(() => this.enviarSegredos());
+    secrets.onChange(() => this.sendSecrets());
   }
 
-  get status(): StatusApi {
+  get status(): ApiStatus {
     return this._status;
   }
 
-  conexao(): ConexaoApi | null {
-    if (this._status !== 'pronta') return null;
-    return { url: `http://127.0.0.1:${this.porta}`, ws: `ws://127.0.0.1:${this.porta}/ws`, token: this.token };
+  connection(): ApiConnection | null {
+    if (this._status !== 'ready') return null;
+    return { url: `http://127.0.0.1:${this.port}`, ws: `ws://127.0.0.1:${this.port}/ws`, token: this.token };
   }
 
-  async iniciar(): Promise<void> {
-    this.parando = false;
-    this.porta = await portaLivre(PORTA_API_PADRAO);
-    const entrada = require.resolve('@ponto/api');
-    const proc = utilityProcess.fork(entrada, [], {
+  async start(): Promise<void> {
+    this.stopping = false;
+    this.port = await findFreePort(DEFAULT_API_PORT);
+    const entry = require.resolve('@ponto/api');
+    const proc = utilityProcess.fork(entry, [], {
       serviceName: 'Ponto API',
       stdio: 'inherit',
       env: {
         ...process.env,
-        PONTO_PORTA: String(this.porta),
+        PONTO_PORT: String(this.port),
         PONTO_TOKEN: this.token,
-        PONTO_BANCO: join(app.getPath('userData'), 'dados', 'ponto.db'),
-        PONTO_VERSAO: app.getVersion(),
+        PONTO_DB: join(app.getPath('userData'), 'data', 'ponto.db'),
+        PONTO_VERSION: app.getVersion(),
       },
     });
-    this.processo = proc;
-    this.definirStatus('iniciando');
+    this.proc = proc;
+    this.setStatus('starting');
 
-    proc.on('message', (bruto: unknown) => {
-      const r = MensagemDaApi.safeParse(bruto);
+    proc.on('message', (raw: unknown) => {
+      const r = MessageFromApi.safeParse(raw);
       if (!r.success) return;
-      if (r.data.tipo === 'pronta') {
-        this.tentativas = 0;
-        this.enviarSegredos();
-        this.definirStatus('pronta');
+      if (r.data.type === 'ready') {
+        this.attempts = 0;
+        this.sendSecrets();
+        this.setStatus('ready');
       } else {
-        console.error('[api] falhou ao iniciar:', r.data.mensagem);
+        console.error('[api] failed to start:', r.data.message);
       }
     });
-    proc.on('exit', (codigo) => {
-      if (this.processo !== proc) return;
-      this.processo = null;
-      if (this.parando) return;
-      this.definirStatus('caiu');
-      const espera = ESPERAS_MS[Math.min(this.tentativas++, ESPERAS_MS.length - 1)] ?? 30_000;
-      console.error(`[api] saiu com código ${codigo}; reiniciando em ${espera} ms`);
-      setTimeout(() => void this.iniciar(), espera);
+    proc.on('exit', (code) => {
+      if (this.proc !== proc) return;
+      this.proc = null;
+      if (this.stopping) return;
+      this.setStatus('crashed');
+      const delay = BACKOFF_MS[Math.min(this.attempts++, BACKOFF_MS.length - 1)] ?? 30_000;
+      console.error(`[api] exited with code ${code}; restarting in ${delay} ms`);
+      setTimeout(() => void this.start(), delay);
     });
   }
 
-  parar(): void {
-    this.parando = true;
-    this.processo?.kill();
-    this.processo = null;
+  stop(): void {
+    this.stopping = true;
+    this.proc?.kill();
+    this.proc = null;
   }
 
-  private enviarSegredos(): void {
-    this.processo?.postMessage({ tipo: 'segredos', valores: this.segredos.todos() });
+  private sendSecrets(): void {
+    this.proc?.postMessage({ type: 'secrets', values: this.secrets.all() });
   }
 
-  private definirStatus(s: StatusApi): void {
+  private setStatus(s: ApiStatus): void {
     this._status = s;
-    this.aoMudarStatus();
+    this.onStatusChange();
   }
 }
 
-/** A partir da porta preferida, acha a primeira livre em 127.0.0.1. */
-async function portaLivre(preferida: number): Promise<number> {
-  for (let p = preferida; p < preferida + 50; p++) {
-    const livre = await new Promise<boolean>((ok) => {
+/** Starting from the preferred port, finds the first free port on 127.0.0.1. */
+async function findFreePort(preferred: number): Promise<number> {
+  for (let p = preferred; p < preferred + 50; p++) {
+    const free = await new Promise<boolean>((ok) => {
       const s = createServer();
       s.once('error', () => ok(false));
       s.listen(p, '127.0.0.1', () => s.close(() => ok(true)));
     });
-    if (livre) return p;
+    if (free) return p;
   }
-  throw new Error('nenhuma porta livre para a API');
+  throw new Error('no free port available for the API');
 }

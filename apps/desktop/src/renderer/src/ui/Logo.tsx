@@ -1,8 +1,8 @@
-/** Logo provisório do Ponto: um P cujo bojo é um balão de fala, com o ponto no meio. */
-export function Logo({ tamanho = 30 }: { tamanho?: number }) {
+/** Provisional Ponto logo: a letter P whose bowl is a speech bubble with a dot inside. */
+export function Logo({ size = 30 }: { size?: number }) {
   return (
-    <span className="logo" aria-hidden="true" style={{ width: tamanho, height: tamanho }}>
-      <svg width={tamanho * 0.66} height={tamanho * 0.66} viewBox="0 0 24 24" fill="none">
+    <span className="logo" aria-hidden="true" style={{ width: size, height: size }}>
+      <svg width={size * 0.66} height={size * 0.66} viewBox="0 0 24 24" fill="none">
         <path
           d="M8 19.5V5.5h5.5a5 5 0 0 1 0 10H8"
           stroke="currentColor"

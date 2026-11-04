@@ -29,24 +29,24 @@ apps/api          backend local NestJS 11: SQLite (node:sqlite + Drizzle ORM), I
 apps/desktop      Electron 35 + React 19 + Vite 6 + Tailwind 4
   src/main        processo principal: janelas, stealth, z-order, atalhos, cofre, sobe a API
   src/preload     ponte segura window.ponto (gerada a partir do contrato)
-  src/renderer    as janelas em React (agregador, transcrição, tela, home)
-docs/             decisões e pesquisas (economia de tokens, Jev)
+  src/renderer    as janelas em React (overlay, transcription, screen, home)
+docs/             decisões e pesquisas (token-economy, Jev)
 ```
 
 - **Só o processo principal fala com o SO.** As janelas não têm Node; pedem coisas por
-  `window.ponto.invocar(canal, dados)`. Os canais estão todos em
+  `window.ponto.invoke(channel, payload)`. Os canais estão todos em
   `packages/shared/src/ipc.ts`: adicionar um canal novo é editar só esse arquivo e
-  implementar o handler em `apps/desktop/src/main/index.ts` (o TypeScript obriga).
+  implementar o handler em `apps/desktop/src/main/ipc.ts` (o TypeScript obriga).
 - **A API roda como utilityProcess** do Electron, em `127.0.0.1`, com um token aleatório
   por execução. As janelas falam com ela por HTTP e recebem streaming pelo WebSocket.
 - **Chaves de API** ficam no processo principal, cifradas com o cofre do SO (safeStorage),
   e vão para a API por um canal privado (nunca pela rede, nunca para as janelas).
-- **Stealth** (`src/main/janelas/stealth.ts`) é o único lugar que decide a invisibilidade,
+- **Stealth** (`src/main/windows/stealth.ts`) é o único lugar que decide a invisibilidade,
   vale para todas as janelas e tem um interruptor global (Ctrl+Shift+I).
-- **Janelas**: para criar uma nova, adicione o id em `packages/shared/src/janelas.ts`, a
-  definição em `src/main/janelas/definicoes.ts` e o componente no renderer.
+- **Janelas**: para criar uma nova, adicione o id em `packages/shared/src/windows.ts`, a
+  definição em `src/main/windows/definitions.ts` e o componente no renderer.
 - **Banco**: o esquema está em `apps/api/src/db/schema.ts`. Depois de mudar, rode
-  `pnpm db:gerar` para criar a migração; ela roda sozinha quando a API sobe.
+  `pnpm db:generate` para criar a migração; ela roda sozinha quando a API sobe.
 
 ## Atalhos padrão
 
@@ -71,11 +71,11 @@ Todos podem ser trocados em Home → Configurações.
   Deepgram (Nova-3). O trecho recente da call vai como contexto para o chat. Use fone: sem ele o
   microfone ouve o alto-falante (o app descarta o eco mais óbvio).
 - **M2** (feito): o Jev percebe quando perguntam algo para você e a resposta começa sozinha;
-  leitura da tela (Ctrl+Shift+S); controle de gasto (ver `docs/economia-de-tokens.md`).
+  leitura da tela (Ctrl+Shift+S); controle de gasto (ver `docs/token-economy.md`).
 - **M3** (feito): ata da call ao encerrar, página Sessões na Home e exportação em .md
   (Documentos/Ponto). No chat a transcrição vai em pedaços, só acrescentando (o provedor
   reaproveita o cache), e o começo de calls longas vira um resumo contínuo.
 - **Modo invisível**: não use `<select>`, `<datalist>` nem `title` no renderer. Essas
-  janelinhas nativas aparecem na gravação mesmo com o modo ligado; use `ui/Seletor.tsx` e as
-  dicas de `ui/dicas.ts`.
+  janelinhas nativas aparecem na gravação mesmo com o modo ligado; use `ui/Select.tsx` e as
+  dicas de `ui/tooltips.ts`.
 - **M4**: instalador para Windows/macOS/Linux.

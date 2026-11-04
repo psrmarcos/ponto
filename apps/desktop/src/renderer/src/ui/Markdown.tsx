@@ -1,80 +1,88 @@
 import { Fragment, type ReactNode } from 'react';
-import { realcar } from './realce';
+import { highlightCode } from './highlight';
 
 /**
- * Markdown leve para as respostas da IA: parágrafos, listas, **negrito**,
- * `código` e blocos ```. Tudo vira elemento React (nada de innerHTML), então
- * texto vindo do modelo nunca executa nada.
+ * Lightweight Markdown renderer for AI responses: paragraphs, lists, **bold**,
+ * `code`, and ``` blocks. Everything turns into React elements (never innerHTML),
+ * so model-generated text can never execute scripts.
  */
-export function Markdown({ texto }: { texto: string }) {
-  const blocos: ReactNode[] = [];
-  // ```lang ... ``` vira bloco de código colorido; o resto, parágrafos e listas.
+export function Markdown({ text }: { text: string }) {
+  const blocks: ReactNode[] = [];
+  // ```lang ... ``` becomes a syntax-highlighted code block; the rest becomes paragraphs and lists.
   const re = /```([\w+#.-]*)[^\n]*\n?([\s\S]*?)(?:```|$)/g;
-  let ultimo = 0;
+  let lastIndex = 0;
   let n = 0;
-  for (const m of texto.matchAll(re)) {
+  for (const m of text.matchAll(re)) {
     const i = m.index ?? 0;
-    if (i > ultimo) blocos.push(...paragrafos(texto.slice(ultimo, i), n++));
-    const linguagem = m[1] ?? '';
-    const codigo = (m[2] ?? '').replace(/\n$/, '');
-    blocos.push(
-      <pre key={`c${n++}`} className="codigo">
-        {linguagem && <span className="rc-lang">{linguagem}</span>}
-        <code>{realcar(codigo, linguagem)}</code>
+    if (i > lastIndex) blocks.push(...renderParagraphs(text.slice(lastIndex, i), n++));
+    const language = m[1] ?? '';
+    const code = (m[2] ?? '').replace(/\n$/, '');
+    blocks.push(
+      <pre key={`c${n++}`} className="code-block">
+        {language && <span className="hl-lang">{language}</span>}
+        <code>{highlightCode(code, language)}</code>
       </pre>,
     );
-    ultimo = i + m[0].length;
+    lastIndex = i + m[0].length;
   }
-  if (ultimo < texto.length) blocos.push(...paragrafos(texto.slice(ultimo), n++));
-  return <>{blocos}</>;
+  if (lastIndex < text.length) blocks.push(...renderParagraphs(text.slice(lastIndex), n++));
+  return <>{blocks}</>;
 }
 
-function paragrafos(texto: string, chave: number): ReactNode[] {
-  const saida: ReactNode[] = [];
-  let lista: string[] = [];
-  const fecharLista = (k: string) => {
-    if (!lista.length) return;
-    saida.push(
-      <ul key={k}>
-        {lista.map((l, i) => {
-          const tarefa = /^\[( |x|X)\]\s+(.*)$/.exec(l);
+function renderParagraphs(text: string, blockKey: number): ReactNode[] {
+  const output: ReactNode[] = [];
+  let listItems: string[] = [];
+  const flushList = (key: string) => {
+    if (!listItems.length) return;
+    output.push(
+      <ul key={key}>
+        {listItems.map((line, i) => {
+          const task = /^\[( |x|X)\]\s+(.*)$/.exec(line);
           return (
-            <li key={i} className={tarefa ? 'md-tarefa' : undefined}>
-              {tarefa ? <span aria-hidden>{tarefa[1] === ' ' ? '☐ ' : '☑ '}</span> : null}
-              {inline(tarefa ? (tarefa[2] ?? '') : l)}
+            <li key={i} className={task ? 'md-task' : undefined}>
+              {task ? <span aria-hidden>{task[1] === ' ' ? '☐ ' : '☑ '}</span> : null}
+              {renderInline(task ? (task[2] ?? '') : line)}
             </li>
           );
         })}
       </ul>,
     );
-    lista = [];
+    listItems = [];
   };
-  texto.split('\n').forEach((linha, i) => {
-    const item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(linha);
+  text.split('\n').forEach((line, i) => {
+    const item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(line);
     if (item) {
-      lista.push(item[1] ?? '');
+      listItems.push(item[1] ?? '');
       return;
     }
-    fecharLista(`${chave}-l${i}`);
-    const titulo = /^(#{1,6})\s+(.*)$/.exec(linha);
-    if (titulo) {
-      const nivel = titulo[1]!.length;
-      saida.push(
-        nivel === 1 ? <h3 key={`${chave}-h${i}`} className="md-h1">{inline(titulo[2] ?? '')}</h3> : <h4 key={`${chave}-h${i}`} className="md-h2">{inline(titulo[2] ?? '')}</h4>,
+    flushList(`${blockKey}-l${i}`);
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) {
+      const level = heading[1]!.length;
+      output.push(
+        level === 1 ? (
+          <h3 key={`${blockKey}-h${i}`} className="md-h1">
+            {renderInline(heading[2] ?? '')}
+          </h3>
+        ) : (
+          <h4 key={`${blockKey}-h${i}`} className="md-h2">
+            {renderInline(heading[2] ?? '')}
+          </h4>
+        ),
       );
       return;
     }
-    const limpa = linha.replace(/^_(.+)_$/, '$1');
-    if (limpa.trim()) saida.push(<p key={`${chave}-p${i}`}>{inline(limpa)}</p>);
+    const clean = line.replace(/^_(.+)_$/, '$1');
+    if (clean.trim()) output.push(<p key={`${blockKey}-p${i}`}>{renderInline(clean)}</p>);
   });
-  fecharLista(`${chave}-lfim`);
-  return saida;
+  flushList(`${blockKey}-lend`);
+  return output;
 }
 
-function inline(texto: string): ReactNode {
-  return texto.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((t, i) => {
-    if (t.startsWith('**') && t.endsWith('**') && t.length > 4) return <strong key={i}>{t.slice(2, -2)}</strong>;
-    if (t.startsWith('`') && t.endsWith('`') && t.length > 2) return <code key={i}>{t.slice(1, -1)}</code>;
-    return <Fragment key={i}>{t}</Fragment>;
+function renderInline(text: string): ReactNode {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) return <code key={i}>{part.slice(1, -1)}</code>;
+    return <Fragment key={i}>{part}</Fragment>;
   });
 }

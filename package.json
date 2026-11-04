@@ -2,7 +2,7 @@
   "name": "ponto",
   "version": "0.1.0",
   "private": true,
-  "description": "Copiloto de IA local-first e open-source para calls",
+  "description": "Local-first, open-source AI copilot for calls",
   "license": "MIT",
   "packageManager": "pnpm@10.12.1",
   "engines": { "node": ">=22.13" },
@@ -11,7 +11,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "db:gerar": "pnpm --filter @ponto/api db:gerar"
+    "db:generate": "pnpm --filter @ponto/api db:generate"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

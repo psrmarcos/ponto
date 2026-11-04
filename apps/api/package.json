@@ -2,15 +2,15 @@
   "name": "@ponto/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Backend local (NestJS) do Ponto: banco, IA, sessões. Roda como utilityProcess do Electron.",
+  "description": "Local backend (NestJS) for Ponto: database, AI, sessions. Runs as an Electron utilityProcess.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/copiar-migracoes.mjs",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-migrations.mjs",
     "dev": "tsc -p tsconfig.build.json --watch",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:gerar": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

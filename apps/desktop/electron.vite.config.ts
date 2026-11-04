@@ -5,12 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 import type { Plugin } from 'vite';
 
 /**
- * Content-Security-Policy das janelas. No build é estrita (só scripts do próprio
- * app; rede só para a API local). Em dev o Vite precisa de script inline e do
- * servidor de HMR.
+ * Window Content-Security-Policy. Strict in production builds (only scripts from
+ * the app itself; network restricted to the local API). In dev, Vite requires
+ * inline scripts and the HMR server.
  */
 function csp(): Plugin {
-  const comum = [
+  const base = [
     "default-src 'self'",
     "img-src 'self' data: blob:",
     "style-src 'self' 'unsafe-inline'",
@@ -21,24 +21,24 @@ function csp(): Plugin {
   return {
     name: 'ponto-csp',
     transformIndexHtml(html, ctx) {
-      const dev = !!ctx.server;
-      const politica = [
-        ...comum,
-        dev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
-        dev ? "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* ws://localhost:*" : "connect-src http://127.0.0.1:* ws://127.0.0.1:*",
+      const isDev = !!ctx.server;
+      const policy = [
+        ...base,
+        isDev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
+        isDev ? "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* ws://localhost:*" : "connect-src http://127.0.0.1:* ws://127.0.0.1:*",
       ].join('; ');
-      return html.replace('<!--CSP-->', `<meta http-equiv="Content-Security-Policy" content="${politica}" />`);
+      return html.replace('<!--CSP-->', `<meta http-equiv="Content-Security-Policy" content="${policy}" />`);
     },
   };
 }
 
 export default defineConfig({
   main: {
-    // Dependências ficam fora do bundle (node_modules), menos o contrato compartilhado.
+    // Keep dependencies external (node_modules), except the shared contract.
     plugins: [externalizeDepsPlugin({ exclude: ['@ponto/shared'] })],
   },
   preload: {
-    // Preload com sandbox: precisa ser um arquivo só, sem require de pacotes.
+    // Sandboxed preload: must be a single bundled file without external package requires.
     plugins: [externalizeDepsPlugin({ exclude: ['@ponto/shared', 'zod'] })],
     build: { rollupOptions: { output: { format: 'cjs' } } },
   },

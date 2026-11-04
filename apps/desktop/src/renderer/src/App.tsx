@@ -1,20 +1,20 @@
-import type { IdJanela } from '@ponto/shared';
-import { useCliqueAtraves } from './hooks/useCliqueAtraves';
-import { Agregador } from './janelas/Agregador';
-import { Home } from './janelas/Home';
-import { Tela } from './janelas/Tela';
-import { Transcricao } from './janelas/Transcricao';
+import type { WindowId } from '@ponto/shared';
+import { useClickThrough } from './hooks/useClickThrough';
+import { Overlay } from './windows/Overlay';
+import { Home } from './windows/Home';
+import { Screen } from './windows/Screen';
+import { Transcription } from './windows/Transcription';
 
-const JANELAS: Record<IdJanela, () => React.JSX.Element> = {
-  agregador: Agregador,
-  transcricao: Transcricao,
-  tela: Tela,
+const WINDOWS: Record<WindowId, () => React.JSX.Element> = {
+  overlay: Overlay,
+  transcription: Transcription,
+  screen: Screen,
   home: Home,
 };
 
-export function App({ janela }: { janela: IdJanela }) {
-  // A Home é opaca e recebe todo clique; as outras deixam o clique atravessar fora das áreas sólidas.
-  useCliqueAtraves(janela !== 'home');
-  const Janela = JANELAS[janela] ?? Agregador;
-  return <Janela />;
+export function App({ windowId }: { windowId: WindowId }) {
+  // Home is opaque and receives all clicks; floating windows let clicks pass through outside solid areas.
+  useClickThrough(windowId !== 'home');
+  const WindowComponent = WINDOWS[windowId] ?? Overlay;
+  return <WindowComponent />;
 }

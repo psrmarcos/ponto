@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793778917073,
+      "tag": "0000_melted_dragon_lord",
+      "breakpoints": true
+    }
+  ]
+}

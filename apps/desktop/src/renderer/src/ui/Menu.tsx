@@ -1,95 +1,96 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 interface Props {
-  botao: (abrir: { aberto: boolean; alternar: () => void }) => ReactNode;
-  children: (fechar: () => void) => ReactNode;
+  trigger: (state: { open: boolean; toggle: () => void }) => ReactNode;
+  children: (close: () => void) => ReactNode;
   className?: string;
-  /** Lado preferido. Se não couber, abre para o outro. */
-  abrirPara?: 'baixo' | 'cima';
-  /** Borda do botão em que o menu se alinha. */
-  alinhar?: 'esquerda' | 'direita';
+  /** Preferred vertical direction. Flips to the other side if it doesn't fit. */
+  direction?: 'down' | 'up';
+  /** Horizontal edge of the trigger to align with. */
+  align?: 'left' | 'right';
 }
 
-const MARGEM = 8;
-const FOLGA = 4;
+const MARGIN = 8;
+const GAP = 4;
 
 /**
- * Menu ancorado no botão. Fecha ao clicar fora, com Esc ou quando a página rola.
+ * Popover menu anchored to a trigger button. Closes on outside click, Escape,
+ * or page scroll.
  *
- * Fica em `position: fixed`, calculado a partir do botão: assim nenhum painel
- * com rolagem ou `overflow: hidden` corta o menu. Abre para o lado que tiver
- * espaço, desliza na horizontal para não passar da borda da janela e ganha
- * rolagem se mesmo assim não couber (a janela do SO corta o que passa dela).
+ * Uses `position: fixed` computed from the button's bounding box so no parent
+ * container with scroll or `overflow: hidden` clips it. Opens toward the side
+ * with more space, shifts horizontally to stay within the viewport, and scrolls
+ * internally if still taller than available space.
  */
-export function Menu({ botao, children, className = '', abrirPara = 'baixo', alinhar = 'esquerda' }: Props) {
-  const [aberto, setAberto] = useState(false);
-  const [estilo, setEstilo] = useState<CSSProperties | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  const menu = useRef<HTMLDivElement>(null);
+export function Menu({ trigger, children, className = '', direction = 'down', align = 'left' }: Props) {
+  const [open, setOpen] = useState(false);
+  const [style, setStyle] = useState<CSSProperties | null>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!aberto) return;
-    const fora = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setAberto(false);
+    if (!open) return;
+    const onOutside = (e: MouseEvent) => {
+      if (!anchorRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setAberto(false);
-    // Rolou a página por baixo: o botão saiu do lugar, então fecha (rolar dentro do menu não conta).
-    const rolou = (e: Event) => {
-      if (!menu.current?.contains(e.target as Node)) setAberto(false);
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    // Page scrolled underneath: button moved, so close (scrolling inside the menu itself is fine).
+    const onScroll = (e: Event) => {
+      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const redimensionou = () => setAberto(false);
-    document.addEventListener('mousedown', fora);
-    document.addEventListener('keydown', esc);
-    document.addEventListener('scroll', rolou, true);
-    window.addEventListener('resize', redimensionou);
+    const onResize = () => setOpen(false);
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('keydown', onEsc);
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
     return () => {
-      document.removeEventListener('mousedown', fora);
-      document.removeEventListener('keydown', esc);
-      document.removeEventListener('scroll', rolou, true);
-      window.removeEventListener('resize', redimensionou);
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('keydown', onEsc);
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
     };
-  }, [aberto]);
+  }, [open]);
 
-  // Mede antes de pintar: sem piscar no lugar errado.
+  // Measure before paint so it never flashes in the wrong position.
   useLayoutEffect(() => {
-    if (!aberto || !ref.current || !menu.current) {
-      setEstilo(null);
+    if (!open || !anchorRef.current || !menuRef.current) {
+      setStyle(null);
       return;
     }
-    const b = ref.current.getBoundingClientRect();
-    const altura = menu.current.scrollHeight;
-    const larguraNatural = menu.current.offsetWidth;
-    const abaixo = window.innerHeight - b.bottom - MARGEM - FOLGA;
-    const acimaEspaco = b.top - MARGEM - FOLGA;
-    const acima =
-      abrirPara === 'cima' ? altura <= acimaEspaco || acimaEspaco > abaixo : altura > abaixo && acimaEspaco > abaixo;
-    const max = Math.max(120, Math.floor(acima ? acimaEspaco : abaixo));
-    const h = Math.min(altura, max);
-    const largura = Math.min(larguraNatural, window.innerWidth - 2 * MARGEM);
-    let left = alinhar === 'direita' ? b.right - largura : b.left;
-    left = Math.max(MARGEM, Math.min(left, window.innerWidth - MARGEM - largura));
-    setEstilo({
+    const btnRect = anchorRef.current.getBoundingClientRect();
+    const contentHeight = menuRef.current.scrollHeight;
+    const naturalWidth = menuRef.current.offsetWidth;
+    const spaceBelow = window.innerHeight - btnRect.bottom - MARGIN - GAP;
+    const spaceAbove = btnRect.top - MARGIN - GAP;
+    const openAbove =
+      direction === 'up' ? contentHeight <= spaceAbove || spaceAbove > spaceBelow : contentHeight > spaceBelow && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.floor(openAbove ? spaceAbove : spaceBelow));
+    const height = Math.min(contentHeight, maxHeight);
+    const width = Math.min(naturalWidth, window.innerWidth - 2 * MARGIN);
+    let left = align === 'right' ? btnRect.right - width : btnRect.left;
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - MARGIN - width));
+    setStyle({
       position: 'fixed',
       left: Math.round(left),
-      top: Math.round(acima ? b.top - FOLGA - h : b.bottom + FOLGA),
+      top: Math.round(openAbove ? btnRect.top - GAP - height : btnRect.bottom + GAP),
       right: 'auto',
       bottom: 'auto',
-      maxHeight: max,
+      maxHeight,
       overflowY: 'auto',
-      width: largura < larguraNatural ? largura : undefined,
+      width: width < naturalWidth ? width : undefined,
     });
-  }, [aberto, abrirPara, alinhar]);
+  }, [open, direction, align]);
 
   return (
-    <div className="ancora" ref={ref}>
-      {botao({ aberto, alternar: () => setAberto((v) => !v) })}
+    <div className="anchor" ref={anchorRef}>
+      {trigger({ open, toggle: () => setOpen((v) => !v) })}
       <div
-        ref={menu}
-        className={`menu ${className}${aberto ? ' aberto' : ''}`}
+        ref={menuRef}
+        className={`menu ${className}${open ? ' open' : ''}`}
         role="menu"
-        style={estilo ?? (aberto ? { visibility: 'hidden' } : undefined)}
+        style={style ?? (open ? { visibility: 'hidden' } : undefined)}
       >
-        {children(() => setAberto(false))}
+        {children(() => setOpen(false))}
       </div>
     </div>
   );

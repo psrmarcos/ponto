@@ -1,86 +1,88 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 
 /**
- * Esquema do banco local (SQLite em modo WAL, arquivo no userData do app).
- * Depois de mudar este arquivo rode `pnpm db:gerar` para criar a migração.
+ * Local database schema (SQLite in WAL mode, stored in the app's userData directory).
+ * After modifying this file run `pnpm db:generate` to generate a migration.
  */
 
-/** Configurações do domínio, uma linha por chave, valor em JSON. */
-export const configuracoes = sqliteTable('configuracoes', {
-  chave: text('chave').primaryKey(),
-  valor: text('valor', { mode: 'json' }).notNull(),
-  atualizadoEm: integer('atualizado_em', { mode: 'timestamp_ms' }).notNull(),
+/** Domain settings, one row per key, JSON value. */
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value', { mode: 'json' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-export const agentes = sqliteTable('agentes', {
+export const agents = sqliteTable('agents', {
   id: text('id').primaryKey(),
-  nome: text('nome').notNull(),
-  descricao: text('descricao').notNull().default(''),
-  categoria: text('categoria').notNull().default(''),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  category: text('category').notNull().default(''),
   prompt: text('prompt').notNull(),
-  modelo: text('modelo'),
-  embutido: integer('embutido', { mode: 'boolean' }).notNull().default(false),
-  ordem: integer('ordem').notNull().default(0),
-  criadoEm: integer('criado_em', { mode: 'timestamp_ms' }).notNull(),
+  model: text('model'),
+  builtIn: integer('built_in', { mode: 'boolean' }).notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-/** Uma call/reunião. */
-export const sessoes = sqliteTable('sessoes', {
+/** A call/meeting session. */
+export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
-  titulo: text('titulo').notNull().default('Sessão sem título'),
-  agenteId: text('agente_id').notNull(),
-  iniciadaEm: integer('iniciada_em', { mode: 'timestamp_ms' }).notNull(),
-  encerradaEm: integer('encerrada_em', { mode: 'timestamp_ms' }),
-  resumo: text('resumo'),
+  title: text('title').notNull().default('Sessão sem título'),
+  agentId: text('agent_id').notNull(),
+  startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+  endedAt: integer('ended_at', { mode: 'timestamp_ms' }),
+  summary: text('summary'),
 });
 
-/** Trechos da transcrição. `canal` separa o microfone (você) do áudio do sistema (os outros). */
-export const falas = sqliteTable(
-  'falas',
+/** Transcript utterances. `channel` separates microphone (you) from system audio (others). */
+export const utterances = sqliteTable(
+  'utterances',
   {
     id: text('id').primaryKey(),
-    sessaoId: text('sessao_id').notNull().references(() => sessoes.id, { onDelete: 'cascade' }),
-    canal: text('canal', { enum: ['microfone', 'sistema'] }).notNull(),
-    falante: text('falante'),
-    texto: text('texto').notNull(),
-    inicioMs: integer('inicio_ms').notNull(),
-    fimMs: integer('fim_ms').notNull(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    channel: text('channel', { enum: ['microphone', 'system'] }).notNull(),
+    speaker: text('speaker'),
+    text: text('text').notNull(),
+    startMs: integer('start_ms').notNull(),
+    endMs: integer('end_ms').notNull(),
   },
-  (t) => [index('falas_sessao_idx').on(t.sessaoId, t.inicioMs)],
+  (t) => [index('utterances_session_idx').on(t.sessionId, t.startMs)],
 );
 
-/** Toda chamada de IA paga fica registrada aqui: é a base do controle de gasto. */
-export const usoIa = sqliteTable(
-  'uso_ia',
+/** Every paid AI call is recorded here: the foundation of spend tracking. */
+export const aiUsage = sqliteTable(
+  'ai_usage',
   {
     id: text('id').primaryKey(),
-    criadoEm: integer('criado_em', { mode: 'timestamp_ms' }).notNull(),
-    sessaoId: text('sessao_id'),
-    provedor: text('provedor').notNull(),
-    modelo: text('modelo').notNull(),
-    /** chat, decisao (System 1), visao, resumo, compactacao... */
-    origem: text('origem').notNull(),
-    tokensEntrada: integer('tokens_entrada').notNull().default(0),
-    tokensSaida: integer('tokens_saida').notNull().default(0),
-    tokensCache: integer('tokens_cache').notNull().default(0),
-    custoUsd: real('custo_usd').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    sessionId: text('session_id'),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    /** chat, decision (System 1), vision, summary, compaction... */
+    source: text('source').notNull(),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    cachedTokens: integer('cached_tokens').notNull().default(0),
+    costUsd: real('cost_usd').notNull().default(0),
   },
-  (t) => [index('uso_criado_idx').on(t.criadoEm)],
+  (t) => [index('usage_created_idx').on(t.createdAt)],
 );
 
-/** O que foi perguntado e respondido no chat, para rever depois (principalmente por sessão). */
-export const mensagensChat = sqliteTable(
-  'mensagens_chat',
+/** Questions and answers exchanged in chat, for reviewing later (mainly per session). */
+export const chatMessages = sqliteTable(
+  'chat_messages',
   {
     id: text('id').primaryKey(),
-    sessaoId: text('sessao_id').references(() => sessoes.id, { onDelete: 'cascade' }),
-    conversaId: text('conversa_id').notNull(),
-    papel: text('papel', { enum: ['eu', 'ia'] }).notNull(),
-    texto: text('texto').notNull(),
-    automatica: integer('automatica', { mode: 'boolean' }).notNull().default(false),
-    modelo: text('modelo'),
-    custoUsd: real('custo_usd'),
-    criadoEm: integer('criado_em', { mode: 'timestamp_ms' }).notNull(),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'cascade' }),
+    conversationId: text('conversation_id').notNull(),
+    role: text('role', { enum: ['user', 'assistant'] }).notNull(),
+    text: text('text').notNull(),
+    automatic: integer('automatic', { mode: 'boolean' }).notNull().default(false),
+    model: text('model'),
+    costUsd: real('cost_usd'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   },
-  (t) => [index('mensagens_sessao_idx').on(t.sessaoId, t.criadoEm)],
+  (t) => [index('messages_session_idx').on(t.sessionId, t.createdAt)],
 );

@@ -1,208 +1,219 @@
 import { app, BrowserWindow, dialog, shell, type WebContents } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
-import { IdJanela, IdSegredo, type EstadoApp } from '@ponto/shared';
+import { WindowId, SecretId, type AppState } from '@ponto/shared';
 import { ApiHost } from './api-host';
-import { AtalhosService } from './atalhos';
-import { CapturaService } from './captura';
-import { emitir, registrarIpc } from './ipc';
-import { GerenciadorJanelas, marcarEncerrando } from './janelas/gerenciador';
-import { PreferenciasService } from './preferencias';
-import { SegredosService } from './segredos';
-import { capturarTela, LeituraAutomatica } from './tela';
-import { lerTextoSelecionado } from './selecao';
+import { ShortcutsService } from './shortcuts';
+import { CaptureService } from './capture';
+import { emit, registerIpc } from './ipc';
+import { WindowManager, markQuitting } from './windows/manager';
+import { PreferencesService } from './preferences';
+import { SecretsService } from './secrets';
+import { captureScreen, AutoScreenReader } from './screen';
+import { readSelectedText } from './selection';
 
 /**
- * Processo principal: o único que fala com o sistema operacional. Monta os
- * serviços, as janelas e o IPC. As janelas desenham e pedem coisas pela API
- * tipada do preload.
+ * Main process: the only process that talks to the operating system. Sets up
+ * services, windows, and IPC. Windows render UI and make requests through the
+ * typed preload bridge.
  */
 
-// Nome da pasta de dados (%APPDATA%\Ponto no Windows). Precisa vir antes de qualquer getPath.
+// Data directory name (%APPDATA%\Ponto on Windows). Must be called before any getPath.
 app.setName('Ponto');
-CapturaService.prepararAntesDoReady();
+CaptureService.prepareBeforeReady();
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  void app.whenReady().then(iniciar);
+  void app.whenReady().then(start);
 }
 
-const MAX_IMAGEM_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-function iniciar(): void {
-  const prefs = new PreferenciasService();
-  const segredos = new SegredosService();
+function start(): void {
+  const prefs = new PreferencesService();
+  const secrets = new SecretsService();
 
-  // Estado espelhado nas janelas. Só reenvia quando algo mudou de fato (evita re-render e piscadas).
-  let ultimoEstado = '';
-  let agendado = false;
-  const difundir = () => {
-    if (agendado) return;
-    agendado = true;
+  // State mirrored across windows. Only broadcasts when something actually changed (prevents re-renders and flicker).
+  let lastStateJson = '';
+  let scheduled = false;
+  const broadcast = () => {
+    if (scheduled) return;
+    scheduled = true;
     queueMicrotask(() => {
-      agendado = false;
-      const estado = montarEstado();
-      const json = JSON.stringify(estado);
-      if (json === ultimoEstado) return;
-      ultimoEstado = json;
-      janelas.todas().forEach((w) => emitir(w.webContents, 'estado', estado));
+      scheduled = false;
+      const state = buildState();
+      const json = JSON.stringify(state);
+      if (json === lastStateJson) return;
+      lastStateJson = json;
+      windows.all().forEach((w) => emit(w.webContents, 'state', state));
     });
   };
 
-  const janelas = new GerenciadorJanelas(prefs, difundir);
-  const captura = new CapturaService(difundir);
-  const leituraAuto = new LeituraAutomatica(() => lerTela('auto'), () => janelas.stealth.ligado && janelas.stealth.suportado);
-  segredos.aoMudar(difundir);
-  const api = new ApiHost(segredos, difundir);
-  const atalhos = new AtalhosService(
+  const windows = new WindowManager(prefs, broadcast);
+  const capture = new CaptureService(broadcast);
+  const autoReader = new AutoScreenReader(
+    () => readScreen('auto'),
+    () => windows.stealth.enabled && windows.stealth.supported,
+  );
+  secrets.onChange(broadcast);
+  const api = new ApiHost(secrets, broadcast);
+  const shortcuts = new ShortcutsService(
     prefs,
     {
-      alternarStealth: () => janelas.stealth.definir(!janelas.stealth.ligado),
-      alternarChat: () => {
-        const w = janelas.obter('agregador');
-        if (w) emitir(w.webContents, 'chat.alternar', undefined);
+      toggleStealth: () => windows.stealth.set(!windows.stealth.enabled),
+      toggleChat: () => {
+        const w = windows.get('overlay');
+        if (w) emit(w.webContents, 'chat.toggle', undefined);
       },
-      alternarTranscricao: () => janelas.alternar('transcricao'),
-      alternarTela: () => janelas.alternar('tela'),
-      alternarHome: () => janelas.alternar('home'),
-      lerTela: () => void lerTela(),
-      perguntarSelecao: () => void perguntarSelecao(),
-      alternarCaptura: () => captura.alternar(),
-      sair: () => app.quit(),
+      toggleTranscription: () => windows.toggle('transcription'),
+      toggleScreen: () => windows.toggle('screen'),
+      toggleHome: () => windows.toggle('home'),
+      readScreen: () => void readScreen(),
+      askSelection: () => void askSelection(),
+      toggleCapture: () => capture.toggle(),
+      quit: () => app.quit(),
     },
-    difundir,
+    broadcast,
   );
 
-  /** Texto selecionado em qualquer app: vai para o chat (que aparece, se estava escondido). */
-  async function perguntarSelecao(): Promise<void> {
-    const texto = await lerTextoSelecionado();
-    const w = janelas.obter('agregador');
+  /** Text selected in any app: sent to chat (which opens if hidden). */
+  async function askSelection(): Promise<void> {
+    const text = await readSelectedText();
+    const w = windows.get('overlay');
     if (!w) return;
-    emitir(w.webContents, 'selecao.lida', { texto: texto ?? '' });
+    emit(w.webContents, 'selection.read', { text: text ?? '' });
   }
 
-  /** Print da tela: o chat (agregador) manda para a IA e a janela Tela mostra a prévia. */
-  async function lerTela(origem: 'manual' | 'auto' = 'manual'): Promise<void> {
-    difundirLeitura(await capturarTela(), origem);
+  /** Screenshot: chat (overlay) sends it to AI and the Screen window displays a preview. */
+  async function readScreen(source: 'manual' | 'auto' = 'manual'): Promise<void> {
+    broadcastScreenRead(await captureScreen(), source);
   }
 
-  function difundirLeitura(dataUrl: string, origem: 'manual' | 'recorte' | 'auto'): void {
-    const dados = { dataUrl, em: Date.now(), origem };
-    for (const id of ['agregador', 'tela'] as const) {
-      const w = janelas.obter(id);
-      if (w) emitir(w.webContents, 'tela.lida', dados);
+  function broadcastScreenRead(dataUrl: string, source: 'manual' | 'crop' | 'auto'): void {
+    const data = { dataUrl, at: Date.now(), source };
+    for (const id of ['overlay', 'screen'] as const) {
+      const w = windows.get(id);
+      if (w) emit(w.webContents, 'screen.read', data);
     }
   }
 
-  function montarEstado(): EstadoApp {
-    const vis = {} as EstadoApp['janelas'];
-    for (const id of IdJanela.options) vis[id] = { visivel: janelas.visivel(id) };
+  function buildState(): AppState {
+    const vis = {} as AppState['windows'];
+    for (const id of WindowId.options) vis[id] = { visible: windows.isVisible(id) };
     return {
-      stealth: { ligado: janelas.stealth.ligado, suportado: janelas.stealth.suportado },
-      janelas: vis,
-      atalhos: prefs.atalhos(),
-      atalhosComErro: atalhos.erros,
+      stealth: { enabled: windows.stealth.enabled, supported: windows.stealth.supported },
+      windows: vis,
+      shortcuts: prefs.shortcuts(),
+      failedShortcuts: shortcuts.errors,
       api: { status: api.status },
-      captura: captura.estado,
-      telaAuto: leituraAuto.ligada,
-      chavesConfiguradas: IdSegredo.options.filter((id) => segredos.status()[id].configurado),
-      plataforma: process.platform as EstadoApp['plataforma'],
-      versao: app.getVersion(),
+      capture: capture.state,
+      screenAuto: autoReader.enabled,
+      configuredSecrets: SecretId.options.filter((id) => secrets.status()[id].configured),
+      platform: process.platform as AppState['platform'],
+      version: app.getVersion(),
     };
   }
 
-  const nossas = (wc: WebContents) => wc === captura.webContents || janelas.todas().some((w) => w.webContents === wc);
-  const daCaptura = (wc: WebContents) => wc === captura.webContents;
+  const isOurWindow = (wc: WebContents) => wc === capture.webContents || windows.all().some((w) => w.webContents === wc);
+  const isCaptureWindow = (wc: WebContents) => wc === capture.webContents;
 
-  registrarIpc(
+  registerIpc(
     {
-      'estado.obter': () => montarEstado(),
-      'stealth.definir': ({ ligado }) => janelas.stealth.definir(ligado),
-      'janela.alternar': ({ id, visivel }) => janelas.alternar(id, visivel),
-      'janela.controlar': ({ acao }, e) => {
+      'state.get': () => buildState(),
+      'stealth.set': ({ enabled }) => windows.stealth.set(enabled),
+      'window.toggle': ({ id, visible }) => windows.toggle(id, visible),
+      'window.control': ({ action }, e) => {
         const w = BrowserWindow.fromWebContents(e.sender);
-        if (w && acao === 'minimizar') w.minimize();
-        if (w && acao === 'maximizar') {
+        if (w && action === 'minimize') w.minimize();
+        if (w && action === 'maximize') {
           if (w.isMaximized()) w.unmaximize();
           else w.maximize();
         }
-        return { maximizada: w?.isMaximized() ?? false };
+        return { maximized: w?.isMaximized() ?? false };
       },
-      'janela.focarEntrada': (_d, e) => {
+      'window.focusInput': (_d, e) => {
         const w = BrowserWindow.fromWebContents(e.sender);
         w?.focus();
       },
-      'atalhos.definir': ({ acao, accelerator }) => atalhos.definir(acao, accelerator),
-      'atalhos.restaurarPadrao': () => atalhos.restaurarPadrao(),
-      'api.conexao': () => api.conexao(),
-      'segredos.status': () => segredos.status(),
-      'segredos.definir': ({ id, valor }) => segredos.definir(id, valor),
-      'arquivo.escolherImagem': async () => {
-        // Sem janela-mãe de propósito: diálogo modal de janela transparente deixa a faixa branca.
+      'shortcuts.set': ({ action, accelerator }) => shortcuts.set(action, accelerator),
+      'shortcuts.resetDefaults': () => shortcuts.resetDefaults(),
+      'api.connection': () => api.connection(),
+      'secrets.status': () => secrets.status(),
+      'secrets.set': ({ id, value }) => secrets.set(id, value),
+      'file.pickImage': async () => {
+        // Intentionally parentless: a modal dialog attached to a transparent window triggers the white bar on Windows.
         const r = await dialog.showOpenDialog({
           title: 'Adicionar imagem',
           properties: ['openFile'],
           filters: [{ name: 'Imagens', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
         });
-        const arquivo = r.filePaths[0];
-        if (r.canceled || !arquivo) return null;
-        const dados = await readFile(arquivo);
-        if (dados.byteLength > MAX_IMAGEM_BYTES) throw new Error('Imagem maior que 8 MB.');
-        const ext = extname(arquivo).slice(1).toLowerCase().replace('jpg', 'jpeg');
-        return { nome: basename(arquivo), dataUrl: `data:image/${ext};base64,${dados.toString('base64')}` };
+        const file = r.filePaths[0];
+        if (r.canceled || !file) return null;
+        const data = await readFile(file);
+        if (data.byteLength > MAX_IMAGE_BYTES) throw new Error('Imagem maior que 8 MB.');
+        const ext = extname(file).slice(1).toLowerCase().replace('jpg', 'jpeg');
+        return { name: basename(file), dataUrl: `data:image/${ext};base64,${data.toString('base64')}` };
       },
-      'app.sair': () => app.quit(),
-      'captura.comandar': (c) => captura.comandar(c),
-      'tela.ler': () => lerTela(),
-      // Maior que o print normal: o recorte de um pedaço precisa continuar legível.
-      'tela.capturar': async () => ({ dataUrl: await capturarTela({ ladoMaximo: 2560, maxBytes: 1_500_000 }), em: Date.now() }),
-      'tela.enviar': ({ dataUrl }) => difundirLeitura(dataUrl, 'recorte'),
-      'tela.auto': ({ ligado }) => {
-        leituraAuto.definir(ligado);
-        difundir();
+      'app.quit': () => app.quit(),
+      'capture.command': (c) => capture.command(c),
+      'screen.read': () => readScreen(),
+      // Higher resolution than standard screenshot so a cropped region stays legible.
+      'screen.capture': async () => ({
+        dataUrl: await captureScreen({ maxSide: 2560, maxBytes: 1_500_000 }),
+        at: Date.now(),
+      }),
+      'screen.send': ({ dataUrl }) => broadcastScreenRead(dataUrl, 'crop'),
+      'screen.auto': ({ enabled }) => {
+        autoReader.set(enabled);
+        broadcast();
       },
-      'arquivo.salvarMarkdown': async ({ nome, conteudo }) => {
-        const pasta = join(app.getPath('documents'), 'Ponto');
-        await mkdir(pasta, { recursive: true });
-        const limpo = nome.replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Sessão';
-        const caminho = join(pasta, `${limpo}.md`);
-        await writeFile(caminho, conteudo, 'utf8');
-        return { caminho };
+      'file.saveMarkdown': async ({ name, content }) => {
+        const folder = join(app.getPath('documents'), 'Ponto');
+        await mkdir(folder, { recursive: true });
+        const cleanName =
+          name
+            .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 120) || 'Sessão';
+        const path = join(folder, `${cleanName}.md`);
+        await writeFile(path, content, 'utf8');
+        return { path };
       },
-      'arquivo.mostrar': ({ caminho }) => {
-        // Só arquivos que o próprio app salvou.
-        const pasta = resolve(app.getPath('documents'), 'Ponto');
-        if (resolve(caminho).startsWith(pasta)) shell.showItemInFolder(caminho);
+      'file.reveal': ({ path }) => {
+        // Only reveal files inside the app's Documents/Ponto folder.
+        const folder = resolve(app.getPath('documents'), 'Ponto');
+        if (resolve(path).startsWith(folder)) shell.showItemInFolder(path);
       },
     },
     {
-      'janela.areasSolidas': ({ areas }, e) => {
+      'window.solidAreas': ({ areas }, e) => {
         const w = BrowserWindow.fromWebContents(e.sender);
-        if (w) janelas.cliqueAtraves.definirAreas(w, areas);
+        if (w) windows.clickThrough.setAreas(w, areas);
       },
-      'captura.status': (s, e) => {
-        if (daCaptura(e.sender)) captura.receberStatus(s);
+      'capture.status': (s, e) => {
+        if (isCaptureWindow(e.sender)) capture.receiveStatus(s);
       },
-      'captura.niveis': (n, e) => {
-        if (daCaptura(e.sender)) captura.repassarNiveis(n, janelas.todas());
+      'capture.levels': (n, e) => {
+        if (isCaptureWindow(e.sender)) capture.forwardLevels(n, windows.all());
       },
     },
-    nossas,
+    isOurWindow,
   );
 
-  janelas.criarTodas();
-  captura.criar();
-  atalhos.registrarTodos();
-  void api.iniciar();
+  windows.createAll();
+  capture.create();
+  shortcuts.registerAll();
+  void api.start();
 
-  app.on('second-instance', () => janelas.alternar('home', true));
+  app.on('second-instance', () => windows.toggle('home', true));
   app.on('before-quit', () => {
-    marcarEncerrando();
-    janelas.zorder.parar();
-    janelas.cliqueAtraves.parar();
-    prefs.salvarAgora();
-    api.parar();
+    markQuitting();
+    windows.zorder.stop();
+    windows.clickThrough.stop();
+    prefs.saveNow();
+    api.stop();
   });
 }
 

@@ -1,116 +1,112 @@
 import { z } from 'zod';
-import { IdJanela, Retangulo } from './janelas';
-import { AcaoAtalho, EstadoApp } from './estado';
-import { IdSegredo, StatusSegredo } from './segredos';
-import { ComandoCaptura, EstadoCaptura, NiveisAudio } from './transcricao';
+import { WindowId, Rect } from './windows';
+import { ShortcutAction, AppState } from './state';
+import { SecretId, SecretStatus } from './secrets';
+import { CaptureCommand, CaptureState, AudioLevels } from './transcription';
 
-export const ConexaoApi = z.object({ url: z.string().url(), ws: z.string(), token: z.string() });
-export type ConexaoApi = z.infer<typeof ConexaoApi>;
+export const ApiConnection = z.object({ url: z.string().url(), ws: z.string(), token: z.string() });
+export type ApiConnection = z.infer<typeof ApiConnection>;
 
-export const ImagemEscolhida = z.object({ nome: z.string(), dataUrl: z.string() });
-export type ImagemEscolhida = z.infer<typeof ImagemEscolhida>;
+export const PickedImage = z.object({ name: z.string(), dataUrl: z.string() });
+export type PickedImage = z.infer<typeof PickedImage>;
 
-const nada = z.void();
+const empty = z.void();
 
 /**
- * Contrato único entre renderer e processo principal.
+ * Single IPC contract between renderer and main process.
  *
- * - `invocar`: o renderer pede e espera resposta (ipcRenderer.invoke).
- * - `enviar`: o renderer avisa, sem resposta (ipcRenderer.send). Para coisas de alta frequência.
- * - `eventos`: o main avisa as janelas (webContents.send).
- *
- * Para criar um canal novo basta adicionar aqui: o preload libera o nome
- * automaticamente, o main é obrigado (pelo tipo) a implementar o handler e valida
- * a entrada com o schema antes de chamar o seu código.
+ * - `invoke`: renderer requests and awaits a response (ipcRenderer.invoke).
+ * - `send`: renderer notifies without waiting for a response (ipcRenderer.send).
+ * - `events`: main notifies windows (webContents.send).
  */
-export const contratoIpc = {
-  invocar: {
-    'estado.obter': { entrada: nada, saida: EstadoApp },
-    'stealth.definir': { entrada: z.object({ ligado: z.boolean() }), saida: nada },
-    'janela.alternar': { entrada: z.object({ id: IdJanela, visivel: z.boolean().optional() }), saida: nada },
-    'janela.focarEntrada': { entrada: nada, saida: nada },
-    /** Botões de janela da Home (a janela de quem chama). */
-    'janela.controlar': {
-      entrada: z.object({ acao: z.enum(['minimizar', 'maximizar', 'estado']) }),
-      saida: z.object({ maximizada: z.boolean() }),
+export const ipcContract = {
+  invoke: {
+    'state.get': { input: empty, output: AppState },
+    'stealth.set': { input: z.object({ enabled: z.boolean() }), output: empty },
+    'window.toggle': { input: z.object({ id: WindowId, visible: z.boolean().optional() }), output: empty },
+    'window.focusInput': { input: empty, output: empty },
+    /** Window control buttons on Home (acts on the caller's window). */
+    'window.control': {
+      input: z.object({ action: z.enum(['minimize', 'maximize', 'state']) }),
+      output: z.object({ maximized: z.boolean() }),
     },
-    'atalhos.definir': {
-      entrada: z.object({ acao: AcaoAtalho, accelerator: z.string().min(1) }),
-      saida: z.object({ ok: z.boolean(), erro: z.string().optional() }),
+    'shortcuts.set': {
+      input: z.object({ action: ShortcutAction, accelerator: z.string().min(1) }),
+      output: z.object({ ok: z.boolean(), error: z.string().optional() }),
     },
-    'atalhos.restaurarPadrao': { entrada: nada, saida: nada },
-    'api.conexao': { entrada: nada, saida: ConexaoApi.nullable() },
-    'segredos.status': { entrada: nada, saida: z.record(IdSegredo, StatusSegredo) },
-    'segredos.definir': {
-      entrada: z.object({ id: IdSegredo, valor: z.string().trim().min(1).max(500).nullable() }),
-      saida: StatusSegredo,
+    'shortcuts.resetDefaults': { input: empty, output: empty },
+    'api.connection': { input: empty, output: ApiConnection.nullable() },
+    'secrets.status': { input: empty, output: z.record(SecretId, SecretStatus) },
+    'secrets.set': {
+      input: z.object({ id: SecretId, value: z.string().trim().min(1).max(500).nullable() }),
+      output: SecretStatus,
     },
-    'arquivo.escolherImagem': { entrada: nada, saida: ImagemEscolhida.nullable() },
-    'app.sair': { entrada: nada, saida: nada },
-    /** Gravar, pausar, retomar ou encerrar a sessão de transcrição. */
-    'captura.comandar': { entrada: ComandoCaptura, saida: nada },
-    /** Tira um print da tela onde está o cursor e manda para o chat analisar. */
-    'tela.ler': { entrada: nada, saida: nada },
-    /** Print para recortar: só devolve a imagem (maior), sem mandar para a IA. */
-    'tela.capturar': { entrada: nada, saida: z.object({ dataUrl: z.string(), em: z.number() }) },
-    /** Manda uma imagem já pronta (ex.: o recorte) para o chat analisar. */
-    'tela.enviar': { entrada: z.object({ dataUrl: z.string().startsWith('data:image/').max(6_000_000) }), saida: nada },
-    'tela.auto': { entrada: z.object({ ligado: z.boolean() }), saida: nada },
-    /** Salva um .md em Documentos/Ponto, sem diálogo (diálogos do sistema aparecem em gravações). */
-    'arquivo.salvarMarkdown': {
-      entrada: z.object({ nome: z.string().min(1).max(160), conteudo: z.string().max(20_000_000) }),
-      saida: z.object({ caminho: z.string() }),
+    'file.pickImage': { input: empty, output: PickedImage.nullable() },
+    'app.quit': { input: empty, output: empty },
+    /** Start, pause, resume, or stop the transcription session. */
+    'capture.command': { input: CaptureCommand, output: empty },
+    /** Captures a screenshot of the display under the cursor and sends it to chat. */
+    'screen.read': { input: empty, output: empty },
+    /** Captures a higher-res screenshot without sending it to AI. */
+    'screen.capture': { input: empty, output: z.object({ dataUrl: z.string(), at: z.number() }) },
+    /** Sends a prepared image (e.g. cropped region) to chat for analysis. */
+    'screen.send': { input: z.object({ dataUrl: z.string().startsWith('data:image/').max(6_000_000) }), output: empty },
+    'screen.auto': { input: z.object({ enabled: z.boolean() }), output: empty },
+    /** Saves a .md file in Documents/Ponto without a native dialog (native dialogs leak into screen recordings). */
+    'file.saveMarkdown': {
+      input: z.object({ name: z.string().min(1).max(160), content: z.string().max(20_000_000) }),
+      output: z.object({ path: z.string() }),
     },
-    /** Abre o Explorer/Finder com o arquivo selecionado. */
-    'arquivo.mostrar': { entrada: z.object({ caminho: z.string().min(1) }), saida: nada },
+    /** Opens Explorer/Finder with the file selected. */
+    'file.reveal': { input: z.object({ path: z.string().min(1) }), output: empty },
   },
-  enviar: {
-    /** Retângulos (px da janela) que recebem o mouse; fora deles o clique atravessa. */
-    'janela.areasSolidas': z.object({ areas: z.array(Retangulo).max(64) }),
-    /** Só da janela de captura (invisível): como está a gravação. */
-    'captura.status': EstadoCaptura,
-    /** Só da janela de captura: volume dos canais, ~10 vezes por segundo. */
-    'captura.niveis': NiveisAudio,
+  send: {
+    /** Rectangles (in window px) that receive mouse events; clicks pass through outside them. */
+    'window.solidAreas': z.object({ areas: z.array(Rect).max(64) }),
+    /** From the hidden capture window only: current recording state. */
+    'capture.status': CaptureState,
+    /** From the hidden capture window only: channel volume levels, ~10x per second. */
+    'capture.levels': AudioLevels,
   },
-  eventos: {
-    estado: EstadoApp,
-    'chat.alternar': nada,
-    /** Print pronto (JPEG reduzido). O chat manda para a IA; a janela Tela mostra a prévia. */
-    /** Atalho do texto selecionado: o chat manda para a IA explicar ou responder. */
-    'selecao.lida': z.object({ texto: z.string() }),
-    'tela.lida': z.object({ dataUrl: z.string(), em: z.number(), origem: z.enum(['manual', 'recorte', 'auto']) }),
-    /** Para a janela de captura: o que fazer. */
-    'captura.comando': ComandoCaptura,
-    /** Para as janelas visíveis, enquanto grava. */
-    'audio.niveis': NiveisAudio,
+  events: {
+    state: AppState,
+    'chat.toggle': empty,
+    /** Selected text shortcut: chat sends it to AI to explain or answer. */
+    'selection.read': z.object({ text: z.string() }),
+    /** Screenshot ready (compressed JPEG). Chat sends it to AI; Screen window shows preview. */
+    'screen.read': z.object({ dataUrl: z.string(), at: z.number(), source: z.enum(['manual', 'crop', 'auto']) }),
+    /** Sent to the hidden capture window: command to execute. */
+    'capture.command': CaptureCommand,
+    /** Sent to visible windows while recording. */
+    'audio.levels': AudioLevels,
   },
 } as const;
 
-type Contrato = typeof contratoIpc;
-export type CanalInvocar = keyof Contrato['invocar'];
-export type CanalEnviar = keyof Contrato['enviar'];
-export type CanalEvento = keyof Contrato['eventos'];
+type Contract = typeof ipcContract;
+export type InvokeChannel = keyof Contract['invoke'];
+export type SendChannel = keyof Contract['send'];
+export type EventChannel = keyof Contract['events'];
 
-export type EntradaInvocar<C extends CanalInvocar> = z.input<Contrato['invocar'][C]['entrada']>;
-export type SaidaInvocar<C extends CanalInvocar> = z.output<Contrato['invocar'][C]['saida']>;
-export type DadosEnviar<C extends CanalEnviar> = z.input<Contrato['enviar'][C]>;
-export type DadosEvento<C extends CanalEvento> = z.output<Contrato['eventos'][C]>;
+export type InvokeInput<C extends InvokeChannel> = z.input<Contract['invoke'][C]['input']>;
+export type InvokeOutput<C extends InvokeChannel> = z.output<Contract['invoke'][C]['output']>;
+export type SendPayload<C extends SendChannel> = z.input<Contract['send'][C]>;
+export type EventPayload<C extends EventChannel> = z.output<Contract['events'][C]>;
 
-/** Nomes liberados no preload (allowlist). Derivados do contrato para nunca divergirem. */
-export const canaisInvocar = Object.keys(contratoIpc.invocar) as CanalInvocar[];
-export const canaisEnviar = Object.keys(contratoIpc.enviar) as CanalEnviar[];
-export const canaisEvento = Object.keys(contratoIpc.eventos) as CanalEvento[];
+/** Allowed channel names in preload (derived from contract so they never diverge). */
+export const invokeChannels = Object.keys(ipcContract.invoke) as InvokeChannel[];
+export const sendChannels = Object.keys(ipcContract.send) as SendChannel[];
+export const eventChannels = Object.keys(ipcContract.events) as EventChannel[];
 
-/** Prefixo dos canais no Electron, para não colidir com canais internos. */
-export const PREFIXO_IPC = 'ponto:';
+/** Prefix for Electron IPC channels to avoid collisions with internal channels. */
+export const IPC_PREFIX = 'ponto:';
 
-/** O que o preload expõe em `window.ponto`. */
+/** Bridge exposed by preload at `window.ponto`. */
 export interface PontoBridge {
-  invocar<C extends CanalInvocar>(
-    canal: C,
-    ...dados: EntradaInvocar<C> extends void ? [] : [EntradaInvocar<C>]
-  ): Promise<SaidaInvocar<C>>;
-  enviar<C extends CanalEnviar>(canal: C, dados: DadosEnviar<C>): void;
-  /** Retorna uma função que cancela a inscrição. */
-  ouvir<C extends CanalEvento>(canal: C, ouvinte: (dados: DadosEvento<C>) => void): () => void;
+  invoke<C extends InvokeChannel>(
+    channel: C,
+    ...args: InvokeInput<C> extends void ? [] : [InvokeInput<C>]
+  ): Promise<InvokeOutput<C>>;
+  send<C extends SendChannel>(channel: C, data: SendPayload<C>): void;
+  /** Returns an unsubscribe function. */
+  on<C extends EventChannel>(channel: C, listener: (data: EventPayload<C>) => void): () => void;
 }

@@ -1,33 +1,33 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { iniciarEstadoApp, janelaAtual } from './estado/app';
-import { iniciarDominio } from './estado/dominio';
-import { iniciarChat } from './estado/chat';
-import { iniciarTranscricao } from './estado/transcricao';
-import { api } from './api/cliente';
-import { instalarDicas } from './ui/dicas';
+import { currentWindow, initAppState } from './state/app';
+import { initDomain } from './state/domain';
+import { initChat } from './state/chat';
+import { initTranscription } from './state/transcription';
+import { api } from './api/client';
+import { installTooltips } from './ui/tooltips';
 import './styles.css';
 
-instalarDicas();
+installTooltips();
 
-iniciarEstadoApp();
+initAppState();
 
-if (new URLSearchParams(location.search).get('janela') === 'captura') {
-  // A janela invisível de captura não desenha nada: só liga o motor de áudio.
-  void import('./captura/motor').then((m) => m.iniciarMotorCaptura());
+if (new URLSearchParams(location.search).get('window') === 'capture') {
+  // The hidden capture window renders nothing: it only starts the audio capture engine.
+  void import('./capture/engine').then((m) => m.startCaptureEngine());
 } else {
-  document.body.dataset.janela = janelaAtual;
-  iniciarDominio();
-  if (janelaAtual === 'agregador') iniciarChat();
-  if (janelaAtual === 'transcricao') iniciarTranscricao();
-  void api.conectar();
+  document.body.dataset.window = currentWindow;
+  initDomain();
+  if (currentWindow === 'overlay') initChat();
+  if (currentWindow === 'transcription') initTranscription();
+  void api.connect();
 
-  const raiz = document.getElementById('raiz');
-  if (raiz) {
-    createRoot(raiz).render(
+  const root = document.getElementById('root');
+  if (root) {
+    createRoot(root).render(
       <StrictMode>
-        <App janela={janelaAtual} />
+        <App windowId={currentWindow} />
       </StrictMode>,
     );
   }

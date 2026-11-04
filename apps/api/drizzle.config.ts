@@ -1,8 +1,8 @@
 import { defineConfig } from 'drizzle-kit';
 
-// Gera as migrações SQL a partir de src/db/schema.ts: `pnpm db:gerar`.
+// Generates SQL migrations from src/db/schema.ts: `pnpm db:generate`.
 export default defineConfig({
   dialect: 'sqlite',
   schema: './src/db/schema.ts',
-  out: './src/db/migracoes',
+  out: './src/db/migrations',
 });

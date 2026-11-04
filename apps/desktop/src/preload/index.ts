@@ -1,33 +1,32 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import { canaisEnviar, canaisEvento, canaisInvocar, PREFIXO_IPC, type PontoBridge } from '@ponto/shared';
+import { sendChannels, eventChannels, invokeChannels, IPC_PREFIX, type PontoBridge } from '@ponto/shared';
 
 /**
- * Ponte entre as janelas (sem acesso a Node) e o processo principal.
+ * Bridge between renderer windows (no Node access) and the main process.
  *
- * Expõe só três funções em `window.ponto`: invocar, enviar e ouvir. Os nomes de
- * canal aceitos vêm do contrato em @ponto/shared, então não existe canal "solto"
- * e nada do ipcRenderer vaza para a página. Para um canal novo, edite só o
- * contrato: este arquivo não muda.
+ * Exposes only three functions on `window.ponto`: `invoke`, `send`, and `on`.
+ * Allowed channel names come directly from the contract in @ponto/shared, so
+ * there are no ad-hoc channels and nothing from `ipcRenderer` leaks to the page.
  */
-const invocar = new Set<string>(canaisInvocar);
-const enviar = new Set<string>(canaisEnviar);
-const eventos = new Set<string>(canaisEvento);
+const invokeSet = new Set<string>(invokeChannels);
+const sendSet = new Set<string>(sendChannels);
+const eventSet = new Set<string>(eventChannels);
 
-const ponte: PontoBridge = {
-  invocar: (canal, ...dados) => {
-    if (!invocar.has(canal)) return Promise.reject(new Error(`canal desconhecido: ${canal}`));
-    return ipcRenderer.invoke(PREFIXO_IPC + canal, dados[0]);
+const bridge: PontoBridge = {
+  invoke: (channel, ...args) => {
+    if (!invokeSet.has(channel)) return Promise.reject(new Error(`unknown channel: ${channel}`));
+    return ipcRenderer.invoke(IPC_PREFIX + channel, args[0]);
   },
-  enviar: (canal, dados) => {
-    if (enviar.has(canal)) ipcRenderer.send(PREFIXO_IPC + canal, dados);
+  send: (channel, data) => {
+    if (sendSet.has(channel)) ipcRenderer.send(IPC_PREFIX + channel, data);
   },
-  ouvir: (canal, ouvinte) => {
-    if (!eventos.has(canal)) return () => {};
-    // Nunca repassa o IpcRendererEvent para a página (ele dá acesso ao ipcRenderer).
-    const fn = (_e: IpcRendererEvent, dados: unknown) => ouvinte(dados as never);
-    ipcRenderer.on(PREFIXO_IPC + canal, fn);
-    return () => ipcRenderer.removeListener(PREFIXO_IPC + canal, fn);
+  on: (channel, listener) => {
+    if (!eventSet.has(channel)) return () => {};
+    // Never pass the raw IpcRendererEvent to the page (it exposes ipcRenderer).
+    const fn = (_e: IpcRendererEvent, data: unknown) => listener(data as never);
+    ipcRenderer.on(IPC_PREFIX + channel, fn);
+    return () => ipcRenderer.removeListener(IPC_PREFIX + channel, fn);
   },
 };
 
-contextBridge.exposeInMainWorld('ponto', ponte);
+contextBridge.exposeInMainWorld('ponto', bridge);

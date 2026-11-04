@@ -1,55 +1,55 @@
 import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import {
-  contratoIpc,
-  PREFIXO_IPC,
-  type CanalEnviar,
-  type CanalEvento,
-  type CanalInvocar,
-  type DadosEnviar,
-  type DadosEvento,
-  type EntradaInvocar,
-  type SaidaInvocar,
+  ipcContract,
+  IPC_PREFIX,
+  type SendChannel,
+  type EventChannel,
+  type InvokeChannel,
+  type SendPayload,
+  type EventPayload,
+  type InvokeInput,
+  type InvokeOutput,
 } from '@ponto/shared';
 
-export type Manipuladores = {
-  [C in CanalInvocar]: (
-    dados: EntradaInvocar<C>,
+export type InvokeHandlers = {
+  [C in InvokeChannel]: (
+    data: InvokeInput<C>,
     e: IpcMainInvokeEvent,
-  ) => SaidaInvocar<C> | Promise<SaidaInvocar<C>>;
+  ) => InvokeOutput<C> | Promise<InvokeOutput<C>>;
 };
-export type ManipuladoresEnviar = { [C in CanalEnviar]: (dados: DadosEnviar<C>, e: IpcMainEvent) => void };
+export type SendHandlers = { [C in SendChannel]: (data: SendPayload<C>, e: IpcMainEvent) => void };
 
 /**
- * Liga o contrato de @ponto/shared ao ipcMain. O tipo `Manipuladores` obriga a
- * implementar todo canal do contrato; a entrada é validada com o schema antes de
- * chegar no handler, e só as nossas janelas podem chamar.
+ * Binds the @ponto/shared contract to ipcMain. The `InvokeHandlers` type forces
+ * every channel in the contract to be implemented; input is validated against
+ * its Zod schema before reaching the handler, and only our windows may call it.
  */
-export function registrarIpc(
-  invocar: Manipuladores,
-  enviar: ManipuladoresEnviar,
-  remetenteValido: (wc: WebContents) => boolean,
+export function registerIpc(
+  invoke: InvokeHandlers,
+  send: SendHandlers,
+  isValidSender: (wc: WebContents) => boolean,
 ): void {
-  for (const canal of Object.keys(contratoIpc.invocar) as CanalInvocar[]) {
-    const schema = contratoIpc.invocar[canal].entrada;
-    ipcMain.handle(PREFIXO_IPC + canal, async (e, bruto: unknown) => {
-      if (!remetenteValido(e.sender)) throw new Error('remetente não autorizado');
-      const r = schema.safeParse(bruto);
-      if (!r.success) throw new Error(`dados inválidos em ${canal}: ${r.error.issues[0]?.message ?? ''}`);
-      const fn = invocar[canal] as (d: unknown, e: IpcMainInvokeEvent) => unknown;
+  for (const channel of Object.keys(ipcContract.invoke) as InvokeChannel[]) {
+    const schema = ipcContract.invoke[channel].input;
+    ipcMain.handle(IPC_PREFIX + channel, async (e, raw: unknown) => {
+      if (!isValidSender(e.sender)) throw new Error('unauthorized sender');
+      const r = schema.safeParse(raw);
+      if (!r.success) throw new Error(`invalid payload on ${channel}: ${r.error.issues[0]?.message ?? ''}`);
+      const fn = invoke[channel] as (d: unknown, e: IpcMainInvokeEvent) => unknown;
       return fn(r.data, e);
     });
   }
-  for (const canal of Object.keys(contratoIpc.enviar) as CanalEnviar[]) {
-    const schema = contratoIpc.enviar[canal];
-    ipcMain.on(PREFIXO_IPC + canal, (e, bruto: unknown) => {
-      if (!remetenteValido(e.sender)) return;
-      const r = schema.safeParse(bruto);
+  for (const channel of Object.keys(ipcContract.send) as SendChannel[]) {
+    const schema = ipcContract.send[channel];
+    ipcMain.on(IPC_PREFIX + channel, (e, raw: unknown) => {
+      if (!isValidSender(e.sender)) return;
+      const r = schema.safeParse(raw);
       if (!r.success) return;
-      (enviar[canal] as (d: unknown, e: IpcMainEvent) => void)(r.data, e);
+      (send[channel] as (d: unknown, e: IpcMainEvent) => void)(r.data, e);
     });
   }
 }
 
-export function emitir<C extends CanalEvento>(wc: WebContents, canal: C, dados: DadosEvento<C>): void {
-  if (!wc.isDestroyed()) wc.send(PREFIXO_IPC + canal, dados);
+export function emit<C extends EventChannel>(wc: WebContents, channel: C, data: EventPayload<C>): void {
+  if (!wc.isDestroyed()) wc.send(IPC_PREFIX + channel, data);
 }

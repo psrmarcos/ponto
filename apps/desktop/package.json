@@ -2,7 +2,7 @@
   "name": "@ponto/desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "App desktop do Ponto (Electron + React)",
+  "description": "Ponto desktop app (Electron + React)",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
